@@ -3,6 +3,26 @@ import type { Expression, HairStyle } from '../config/players';
 import type { FurStyle } from '../config/dogs';
 import type { CharacterDef, TeamConfig } from '../config/teams';
 import { hex, shade } from '../util/math';
+import { LOW, QUALITY } from '../util/quality';
+
+/** Finesse des petits textes (numéros) : 1 en mode Canvas, où une valeur plus grande agrandit le texte. */
+const textRes = (r: number) => (QUALITY === 'canvas' ? 1 : r);
+
+/** Textures créées par chaque scène : retirées de la mémoire quand la scène se ferme. */
+const owned = new WeakMap<Phaser.Scene, Set<string>>();
+function track(scene: Phaser.Scene, key: string) {
+  let set = owned.get(scene);
+  if (!set) {
+    const s = new Set<string>();
+    set = s;
+    owned.set(scene, s);
+    scene.events.once('shutdown', () => {
+      for (const k of s) if (scene.textures.exists(k)) scene.textures.remove(k);
+      owned.delete(scene);
+    });
+  }
+  set.add(key);
+}
 
 /**
  * Personnage cartoon dessiné en vecteurs (contours noirs épais, aplats de couleur).
@@ -301,7 +321,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     const w = look.bodyWidth;
 
     const G = () => new Phaser.GameObjects.Graphics(scene);
-    this.res = look.detail ? 3 : 2;
+    this.res = LOW ? (look.detail ? 1.5 : 1) : look.detail ? 3 : 2;
     this.sig = hashLook(look);
 
     // les Graphics servent de brouillon : chaque pièce est cuite en texture, puis affichée comme image
@@ -353,12 +373,12 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     this.numText = scene.add
       .text(0, -36, String(look.number), { fontFamily: font, fontSize: '12px', color: '#' + look.trim.toString(16).padStart(6, '0') })
       .setOrigin(0.5)
-      .setResolution(3);
+      .setResolution(textRes(3));
     this.numText.setStroke('#111111', 2);
     this.nameText = scene.add
       .text(0, -45, look.name, { fontFamily: font, fontSize: '6px', color: '#' + look.trim.toString(16).padStart(6, '0') })
       .setOrigin(0.5)
-      .setResolution(4);
+      .setResolution(textRes(4));
     this.fx = scene.add.container(0, HEAD_Y - 34);
 
     const im = this.im;
@@ -406,6 +426,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       g.translateCanvas(-b[0], -b[1]);
       for (const c of cmds) g.commandBuffer.push(c);
       g.generateTexture(key, Math.ceil((b[2] - b[0]) * k), Math.ceil((b[3] - b[1]) * k));
+      track(this.scene, key);
     }
     g.clear();
     img.setTexture(key);
@@ -1245,7 +1266,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         color,
       })
       .setOrigin(0.5)
-      .setResolution(2);
+      .setResolution(textRes(2));
     tx.setStroke('#111111', 5);
     this.fx.add(tx);
     this.scene.tweens.add({ targets: tx, y: -16, duration: 220, ease: 'Back.Out' });

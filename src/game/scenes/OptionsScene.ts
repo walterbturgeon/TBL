@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { DIFFICULTY, type Difficulty } from '../config/gameConfig';
 import { Sound } from '../audio/Sound';
-import { Save } from '../systems/Save';
+import { Save, type Quality } from '../systems/Save';
+import { QUALITY_LABEL } from '../util/quality';
 import { cartoonText, onTvBack, panel, toggleFullscreen } from '../ui/ui';
 
 interface Item {
@@ -22,6 +23,8 @@ export class OptionsScene extends Phaser.Scene {
   private sel = 0;
   private controlsPanel: Phaser.GameObjects.Container | null = null;
   private confirmReset = false;
+  private startQuality = Save.settings.quality;
+  private reloadTimer: Phaser.Time.TimerEvent | null = null;
 
   create() {
     this.cameras.main.fadeIn(250, 15, 26, 61);
@@ -72,6 +75,19 @@ export class OptionsScene extends Phaser.Scene {
       {
         label: () => `AIDE AU TIMING   ${st().timingAid ? 'OUI' : 'NON'}`,
         act: () => Save.updateSettings({ timingAid: !st().timingAid }),
+      },
+      {
+        label: () => `QUALITÉ   ◀ ${QUALITY_LABEL[st().quality]} ▶${st().quality !== this.startQuality ? '  (redémarre…)' : ''}`,
+        act: (d) => {
+          const list: Quality[] = ['normal', 'light', 'canvas'];
+          const i = list.indexOf(st().quality);
+          Save.updateSettings({ quality: list[(i + (d === 0 ? 1 : d) + 3) % 3] });
+          // le changement demande de recharger la page
+          if (this.reloadTimer) this.reloadTimer.remove();
+          this.reloadTimer = this.time.delayedCall(1400, () => {
+            if (Save.settings.quality !== this.startQuality) location.reload();
+          });
+        },
       },
       { label: () => 'COMMANDES', act: () => this.showControls() },
       {

@@ -6,3 +6,12 @@ export function isTouch(): boolean {
     return false;
   }
 }
+
+/** Télé (Fire TV avec Fire OS ou Vega OS, Android TV, Tizen, webOS…) : appareil souvent peu puissant. */
+export function isTVDevice(): boolean {
+  try {
+    return /AFT|Silk|Vega|SmartTV|SMART-TV|Tizen|Web0S|webOS|BRAVIA|GoogleTV|Android TV|CrKey|AmazonWebAppPlatform/i.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
+}

@@ -46,6 +46,8 @@ export class HudScene extends Phaser.Scene {
   private pauseTexts: Phaser.GameObjects.Text[] = [];
   private handlers: [string, (...a: never[]) => void][] = [];
   private sprintBtn: Phaser.GameObjects.Container | null = null;
+  private popups: Phaser.GameObjects.Text[] = [];
+  private bannerUntil = 0;
   private touch = false;
 
   create() {
@@ -253,10 +255,13 @@ export class HudScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- messages
   private popup(p: { text: string; color: string; size: number; sub?: string }) {
-    const y = 400 + this.popupY;
+    // pendant la bannière de manche, les messages passent au-dessus d'elle
+    const y = (this.time.now < this.bannerUntil ? 300 : 400) + this.popupY;
     this.popupY = (this.popupY + 78) % 234;
     this.popupT = 0.9;
     const tx = cartoonText(this, 960, y, p.text, p.size, p.color).setOrigin(0.5).setDepth(50);
+    this.popups.push(tx);
+    tx.once('destroy', () => (this.popups = this.popups.filter((x) => x !== tx)));
     tx.setScale(0.2);
     this.tweens.add({ targets: tx, scale: 1, duration: 260, ease: 'Back.Out' });
     this.tweens.add({ targets: tx, y: y - 40, alpha: 0, delay: 1000, duration: 380, onComplete: () => tx.destroy() });
@@ -275,6 +280,9 @@ export class HudScene extends Phaser.Scene {
   }
 
   private banner(b: { title: string; sub: string; color: string }) {
+    for (const p of [...this.popups]) p.destroy();
+    this.popupY = 0;
+    this.bannerUntil = this.time.now + 1900;
     const c = this.add.container(-1920, 520).setDepth(40);
     const g = this.add.graphics();
     g.fillStyle(0x0f1a3d, 0.92);

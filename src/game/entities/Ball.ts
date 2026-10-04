@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FIELD, PHYSICS } from '../config/gameConfig';
 import { project } from '../world/Projection';
 import { bakeTexture, bakedImage } from '../util/bake';
+import { LOW } from '../util/quality';
 
 export type BallState = 'held' | 'pitch' | 'batted' | 'thrown' | 'loose' | 'dead' | 'homerun';
 
@@ -215,7 +216,7 @@ export class Ball {
     this.shadow.setDepth(ground.y - 1);
     this.trailG.setDepth(air.y + 1999);
 
-    const fast = this.state === 'pitch' || this.state === 'batted' || this.state === 'thrown';
+    const fast = !LOW && (this.state === 'pitch' || this.state === 'batted' || this.state === 'thrown');
     this.trail.push({ x: air.x, y: air.y });
     if (this.trail.length > 7 || !fast) this.trail.shift();
     if (!fast) this.trail = [];

@@ -10,10 +10,12 @@ import { HudScene } from './game/scenes/HudScene';
 import { ResultScene } from './game/scenes/ResultScene';
 import { Sound } from './game/audio/Sound';
 import { Save } from './game/systems/Save';
-import { isTouch } from './game/util/device';
+import { isTouch, isTVDevice } from './game/util/device';
 
+// Mode léger (télé) : 30 images par seconde ; « très léger » : sans WebGL.
+const quality = Save.settings.quality;
 const game = new Phaser.Game({
-  type: Phaser.AUTO,
+  type: quality === 'canvas' ? Phaser.CANVAS : Phaser.AUTO,
   parent: 'game',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
@@ -25,7 +27,7 @@ const game = new Phaser.Game({
   },
   render: { antialias: true, roundPixels: false },
   input: { keyboard: true, gamepad: false },
-  fps: { target: 60 },
+  fps: quality === 'normal' ? { target: 60 } : { target: 30, limit: 30 },
   scene: [BootScene, MenuScene, TeamSelectScene, PlayerSelectScene, OptionsScene, GameScene, HudScene, ResultScene],
 });
 
@@ -47,7 +49,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 // Sur une télé, le bouton Retour du navigateur quitte la page : on le remplace par « pause ».
-const isTV = /AFT|Silk|SmartTV|SMART-TV|Tizen|Web0S|webOS|BRAVIA|GoogleTV|Android TV|CrKey/i.test(navigator.userAgent);
+const isTV = isTVDevice();
 if (isTV) {
   history.pushState({ tbl: true }, '');
   window.addEventListener('popstate', () => {

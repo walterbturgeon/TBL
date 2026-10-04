@@ -3,6 +3,7 @@ import { FIELD, GAME_WIDTH, GAME_HEIGHT } from '../config/gameConfig';
 import { BASES, MOUND, project } from './Projection';
 import { hex, pick, rand } from '../util/math';
 import { bakeTexture, bakedImage } from '../util/bake';
+import { LOW } from '../util/quality';
 import type { TeamConfig } from '../config/teams';
 
 type P = { x: number; y: number };
@@ -66,14 +67,16 @@ export class FieldRenderer {
     // le stade est dessiné une fois, puis gardé comme une seule texture
     const key = 'stadium_' + home.id + '_' + away.id;
     const g = new Phaser.GameObjects.Graphics(scene);
+    const k = LOW ? 0.5 : 1; // mode léger : texture deux fois plus petite
+    if (k !== 1) g.scaleCanvas(k, k);
     this.drawGround(g);
     this.drawStands(g, home, away);
     this.drawInfield(g);
     this.drawLines(g);
     this.drawFence(g);
-    if (!scene.textures.exists(key)) g.generateTexture(key, GAME_WIDTH, GAME_HEIGHT);
+    if (!scene.textures.exists(key)) g.generateTexture(key, GAME_WIDTH * k, GAME_HEIGHT * k);
     g.destroy();
-    scene.add.image(0, 0, key).setOrigin(0).setDepth(-1000);
+    scene.add.image(0, 0, key).setOrigin(0).setDepth(-1000).setScale(1 / k);
     this.board = this.drawScoreboard(home, away);
     this.spawnFans(home, away);
   }
@@ -379,6 +382,7 @@ export class FieldRenderer {
       });
     }
     const add = (p: P) => {
+      if (LOW && Math.random() < 0.5) return;
       const s = project(p.x, p.y);
       const sc = 0.75 * s.s + 0.2;
       const img = bakedImage(this.scene, 'fan_' + home.id + '_' + Math.floor(Math.random() * VARIANTS), B, 2, s.x, s.y);

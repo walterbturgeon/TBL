@@ -424,7 +424,6 @@ export class GameScene extends Phaser.Scene {
       this.inning++;
       this.top = true;
     }
-    this.hud('hud-popup', { text: 'CHANGEMENT DE CÔTÉ', color: '#ffffff', size: 54 });
     this.startHalf();
   }
 

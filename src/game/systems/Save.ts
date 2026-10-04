@@ -1,5 +1,8 @@
 import type { Difficulty } from '../config/gameConfig';
 import { RULES } from '../config/gameConfig';
+import { isTVDevice } from '../util/device';
+
+export type Quality = 'normal' | 'light' | 'canvas';
 
 const KEY_SETTINGS = 'turcau-bbl.settings';
 const KEY_RECORDS = 'turcau-bbl.records';
@@ -12,6 +15,7 @@ export interface Settings {
   innings: number;
   timingAid: boolean;
   opponent: string;
+  quality: Quality;
 }
 
 export interface CareerLine {
@@ -43,6 +47,7 @@ const DEFAULT_SETTINGS: Settings = {
   innings: RULES.innings,
   timingAid: true,
   opponent: 'visiteur',
+  quality: isTVDevice() ? 'light' : 'normal',
 };
 
 const DEFAULT_RECORDS: Records = {
