@@ -3,6 +3,7 @@ import { Save } from '../systems/Save';
 import { Sound } from '../audio/Sound';
 import { hex, rand } from '../util/math';
 import { cartoonText, onTvBack, panel } from '../ui/ui';
+import { isTouch } from '../util/device';
 
 export interface HudState {
   homeName: string;
@@ -44,6 +45,8 @@ export class HudScene extends Phaser.Scene {
   private pauseItems: { label: () => string; act: (dir: number) => void }[] = [];
   private pauseTexts: Phaser.GameObjects.Text[] = [];
   private handlers: [string, (...a: never[]) => void][] = [];
+  private sprintBtn: Phaser.GameObjects.Container | null = null;
+  private touch = false;
 
   create() {
     // panneau du pointage
@@ -114,6 +117,32 @@ export class HudScene extends Phaser.Scene {
     pb.on('pointerdown', () => {
       if (!this.pause) this.game.events.emit('tv-back');
     });
+
+    // bouton SPRINT pour les écrans tactiles (pas de flèches sur un téléphone)
+    this.touch = isTouch();
+    if (this.touch) {
+      const sb = this.add.container(1790, 900);
+      const sg = this.add.graphics();
+      sg.fillStyle(0x000000, 0.35);
+      sg.fillCircle(5, 7, 84);
+      sg.fillStyle(0xe3262e, 0.92);
+      sg.fillCircle(0, 0, 84);
+      sg.lineStyle(6, 0x111111, 1);
+      sg.strokeCircle(0, 0, 84);
+      sg.lineStyle(3, 0xffd23f, 1);
+      sg.strokeCircle(0, 0, 74);
+      sb.add(sg);
+      sb.add(cartoonText(this, 0, -8, 'SPRINT', 30, '#ffffff').setOrigin(0.5));
+      sb.add(cartoonText(this, 0, 28, 'tape vite !', 16, '#ffd23f').setOrigin(0.5));
+      sb.setSize(176, 176);
+      sb.setInteractive({ useHandCursor: true });
+      sb.on('pointerdown', () => {
+        this.game.events.emit('touch-sprint');
+        this.tweens.add({ targets: sb, scale: 0.9, duration: 50, yoyo: true });
+      });
+      sb.setVisible(false);
+      this.sprintBtn = sb;
+    }
   }
 
   update(_t: number, dms: number) {
@@ -133,7 +162,9 @@ export class HudScene extends Phaser.Scene {
     t.pitcher.setText(s.pitcher);
     t.pitch.setText(s.pitchLabel ? `Lancer : ${s.pitchLabel}` : '');
     t.mute.setText(s.muted ? 'SON COUPÉ' : '');
-    t.hint.setText(s.hint ? `${s.hint}     ·     ÉCHAP : pause` : 'ÉCHAP : pause');
+    const pauseTxt = this.touch ? '❚❚ : pause' : 'ÉCHAP : pause';
+    t.hint.setText(s.hint ? `${s.hint}     ·     ${pauseTxt}` : pauseTxt);
+    this.sprintBtn?.setVisible(s.sprint >= 0);
 
     const g = this.dyn;
     g.clear();

@@ -10,6 +10,7 @@ import { HudScene } from './game/scenes/HudScene';
 import { ResultScene } from './game/scenes/ResultScene';
 import { Sound } from './game/audio/Sound';
 import { Save } from './game/systems/Save';
+import { isTouch } from './game/util/device';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -53,6 +54,23 @@ if (isTV) {
     history.pushState({ tbl: true }, '');
     game.events.emit('tv-back');
   });
+}
+
+// Téléphone : au premier toucher, plein écran et écran bloqué à l'horizontale (Android ; iPhone l'ignore).
+if (isTouch()) {
+  const goFull = () => {
+    window.removeEventListener('pointerup', goFull);
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+    try {
+      const p = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen?.();
+      Promise.resolve(p)
+        .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape'))
+        .catch(() => undefined);
+    } catch {
+      /* pas de plein écran sur cet appareil : le jeu marche quand même */
+    }
+  };
+  window.addEventListener('pointerup', goFull);
 }
 
 // La barre d'espace et les flèches ne doivent pas faire défiler la page.

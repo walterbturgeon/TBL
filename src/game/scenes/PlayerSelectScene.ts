@@ -5,7 +5,7 @@ import { BILLY, STELLA } from '../config/dogs';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
-import { cartoonText, onTvBack, panel, statBar, toggleFullscreen } from '../ui/ui';
+import { button, cartoonText, onTvBack, panel, statBar, toggleFullscreen } from '../ui/ui';
 
 const COLS = 6;
 const W = 296;
@@ -103,6 +103,7 @@ export class PlayerSelectScene extends Phaser.Scene {
       this.cards.push({ g: this.add.graphics(), rig, x, y });
     });
     cartoonText(this, 960, 1062, 'FLÈCHES : voir   ·   ÉCHAP ou ENTRÉE : retour', 20, '#c9d4ff').setOrigin(0.5);
+    button(this, 120, 46, '← RETOUR', 190, 58, () => this.back());
     this.select(0);
 
     const n = roster.length;

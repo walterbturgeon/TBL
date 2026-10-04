@@ -29,6 +29,7 @@ import { FieldRenderer } from '../world/FieldRenderer';
 import { BASES, MOUND, isFairPosition, project } from '../world/Projection';
 import { chance, clamp, dist, gauss, lerp, rand, segDist } from '../util/math';
 import type { HudState } from './HudScene';
+import { isTouch } from '../util/device';
 
 type Phase = 'intro' | 'banner' | 'sign' | 'aim' | 'windup' | 'pitch' | 'live' | 'walk' | 'dead' | 'over';
 
@@ -149,6 +150,7 @@ export class GameScene extends Phaser.Scene {
   private pointerTap = false;
   private wantPause = false;
   private sprint = 0; // jauge de sprint (0 à 1)
+  private touch = false;
   private pitchBonus: 'super' | 'good' | null = null;
   private meter!: Phaser.GameObjects.Graphics;
   private meterText!: Phaser.GameObjects.Text;
@@ -211,7 +213,15 @@ export class GameScene extends Phaser.Scene {
       if (!this.scene.isPaused()) this.wantPause = true;
     };
     this.game.events.on('tv-back', onBack);
-    this.events.once('shutdown', () => this.game.events.off('tv-back', onBack));
+    const onSprint = () => {
+      this.sprint = Math.min(1, this.sprint + CONTROLS.sprintPerTap * 1.4);
+    };
+    this.game.events.on('touch-sprint', onSprint);
+    this.events.once('shutdown', () => {
+      this.game.events.off('tv-back', onBack);
+      this.game.events.off('touch-sprint', onSprint);
+    });
+    this.touch = isTouch();
     this.events.off('resume');
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys();
@@ -1729,12 +1739,12 @@ export class GameScene extends Phaser.Scene {
     const bases = [1, 2, 3].map((k) => this.runners.some((r) => !r.out && !r.scored && r.onBase === k && r.target === k));
     let hint = '';
     if (O.human) {
-      if (this.phase === 'live') hint = 'Tape vite sur les FLÈCHES pour courir plus vite !';
+      if (this.phase === 'live') hint = this.touch ? 'Tape vite sur SPRINT pour courir plus vite !' : 'Tape vite sur les FLÈCHES pour courir plus vite !';
       else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'ESPACE ou OK : frapper quand la balle arrive au marbre';
     } else {
       if (this.phase === 'live') {
         if (this.holder && this.holder === this.controlled) hint = 'ESPACE ou OK : lancer !';
-        else hint = 'FLÈCHES : sprint vers la balle   ·   OK : plonger !';
+        else hint = this.touch ? 'SPRINT : courir plus vite   ·   touche l’écran : plonger !' : 'FLÈCHES : sprint vers la balle   ·   OK : plonger !';
       } else if (this.phase === 'aim') hint = 'ESPACE ou OK quand l’aiguille est dans le VERT : super lancer !';
       else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'Billy lance… prépare-toi !';
     }
