@@ -37,6 +37,14 @@ export const PHYSICS = {
 
 /** Fenêtres de timing de la frappe, en millisecondes (avant le multiplicateur de difficulté). */
 export const TIMING = {
+  perfect: 45,
+  good: 105,
+  ok: 165,
+  max: 230,
+};
+
+/** Fenêtres de timing de l'IA au bâton (plus étroites : l'IA ne doit pas frapper plus souvent). */
+export const TIMING_AI = {
   perfect: 30,
   good: 75,
   ok: 125,
@@ -73,8 +81,8 @@ export interface DifficultySettings {
 export const DIFFICULTY: Record<Difficulty, DifficultySettings> = {
   easy: {
     label: 'Facile',
-    pitchSpeedMul: 0.8,
-    timingWindowMul: 1.45,
+    pitchSpeedMul: 0.7,
+    timingWindowMul: 1.5,
     aiTimingSd: 120,
     aiWhiff: 0.3,
     aiSwingStrike: 0.7,
@@ -84,12 +92,12 @@ export const DIFFICULTY: Record<Difficulty, DifficultySettings> = {
     aiFielderSpeedMul: 0.9,
     aiRunnerMargin: 0.65,
     assist: 1.0,
-    aiStrikeChance: 0.7,
+    aiStrikeChance: 0.8,
   },
   normal: {
     label: 'Normal',
-    pitchSpeedMul: 0.9,
-    timingWindowMul: 1.15,
+    pitchSpeedMul: 0.78,
+    timingWindowMul: 1.25,
     aiTimingSd: 90,
     aiWhiff: 0.2,
     aiSwingStrike: 0.75,
@@ -98,13 +106,13 @@ export const DIFFICULTY: Record<Difficulty, DifficultySettings> = {
     aiReaction: 0.36,
     aiFielderSpeedMul: 1.0,
     aiRunnerMargin: 0.45,
-    assist: 1.0,
-    aiStrikeChance: 0.64,
+    assist: 0.8,
+    aiStrikeChance: 0.74,
   },
   hard: {
     label: 'Difficile',
-    pitchSpeedMul: 1.03,
-    timingWindowMul: 0.95,
+    pitchSpeedMul: 0.92,
+    timingWindowMul: 1.0,
     aiTimingSd: 70,
     aiWhiff: 0.13,
     aiSwingStrike: 0.8,
@@ -113,8 +121,8 @@ export const DIFFICULTY: Record<Difficulty, DifficultySettings> = {
     aiReaction: 0.22,
     aiFielderSpeedMul: 1.05,
     aiRunnerMargin: 0.3,
-    assist: 0.7,
-    aiStrikeChance: 0.6,
+    assist: 0.6,
+    aiStrikeChance: 0.68,
   },
 };
 
@@ -135,6 +143,13 @@ export const CONTROLS = {
   manualRunning: false, // true : E = avancer les coureuses, Q = les faire revenir
   numberKeyThrows: false, // true : 1-2-3-4 = lancer à un but précis
   autoThrowDelay: 1.2, // s : la joueuse lance seule si personne n'appuie sur ESPACE
+  sprintMax: 0.55, // vitesse en plus quand on tape vite sur les flèches (0.55 = +55 %)
+  sprintHold: 0.35, // part du sprint gardée en tenant une flèche enfoncée
+  sprintPerTap: 0.22, // chaque appui sur une flèche remplit la jauge
+  sprintDecay: 0.9, // la jauge se vide (par seconde)
+  diveTime: 0.42, // durée du plongeon (s)
+  diveRecover: 0.5, // temps pour se relever (s)
+  diveReach: 2.2, // le plongeon multiplie la portée du gant
 };
 
 /** Vitesses des personnages, calculées à partir des statistiques sur 10. */

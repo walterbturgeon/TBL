@@ -24,6 +24,7 @@ export interface HudState {
   hint: string;
   pitchLabel: string;
   muted: boolean;
+  sprint: number; // -1 = cachée
 }
 
 /** Interface par-dessus le jeu : pointage, compte, buts occupés, messages, pause. */
@@ -70,6 +71,8 @@ export class HudScene extends Phaser.Scene {
     T('hint', 960, 1040, '', 24, '#ffffff', 0.5);
     T('mute', 1900, 1040, '', 18, '#ffffff', 1);
     T('timing', 960, 800, '', 44, '#7dff7a', 0.5);
+    T('sprintLbl', 960 - 150 - 100, 982, 'SPRINT', 18, '#ffd23f');
+    this.t.sprintLbl.setVisible(false);
     this.t.timing.setAlpha(0);
 
     const on = (ev: string, fn: (...a: never[]) => void) => {
@@ -191,6 +194,22 @@ export class HudScene extends Phaser.Scene {
     base(cx, cy - 26, s.bases[1]);
     base(cx - 26, cy, s.bases[2]);
     base(cx, cy + 26, false);
+
+    // jauge de sprint
+    if (s.sprint >= 0) {
+      const bw = 300;
+      const bx = 960 - bw / 2;
+      const by = 972;
+      g.fillStyle(0x0f1a3d, 0.85);
+      g.fillRoundedRect(bx - 110, by - 6, bw + 124, 32, 12);
+      g.fillStyle(0x0b1230, 1);
+      g.fillRoundedRect(bx, by, bw, 20, 10);
+      g.fillStyle(s.sprint > 0.75 ? 0x7dff7a : s.sprint > 0.35 ? 0xffe14d : 0x7fd3ff, 1);
+      if (s.sprint > 0) g.fillRoundedRect(bx, by, Math.max(20, bw * s.sprint), 20, 10);
+      g.lineStyle(3, 0x111111, 1);
+      g.strokeRoundedRect(bx, by, bw, 20, 10);
+    }
+    t.sprintLbl.setVisible(s.sprint >= 0);
 
     // barre d'aide
     const w = t.hint.width + 60;

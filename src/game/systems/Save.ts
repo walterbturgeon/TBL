@@ -56,13 +56,16 @@ const DEFAULT_RECORDS: Records = {
   career: {},
 };
 
+// copie simple (structuredClone n'existe pas sur les vieux navigateurs de télé)
+const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+
 function read<T>(key: string, def: T): T {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return structuredClone(def);
-    return { ...structuredClone(def), ...JSON.parse(raw) };
+    if (!raw) return clone(def);
+    return { ...clone(def), ...JSON.parse(raw) };
   } catch {
-    return structuredClone(def);
+    return clone(def);
   }
 }
 

@@ -40,6 +40,35 @@
   </head>
   <body>
     <div id="loading">TURCAU BASEBALL LEAGUE…</div>
+    <script>
+      // Montre les erreurs à l'écran : utile sur une télé, où on ne peut pas ouvrir la console.
+      (function () {
+        function show(msg) {
+          var el = document.getElementById('loading');
+          if (!el) {
+            el = document.createElement('div');
+            el.id = 'loading';
+            document.body.appendChild(el);
+          }
+          el.style.fontSize = '20px';
+          el.style.padding = '40px';
+          el.style.textAlign = 'center';
+          el.style.whiteSpace = 'pre-wrap';
+          el.textContent = 'Erreur de chargement :\n' + msg + '\n\n' + navigator.userAgent;
+        }
+        // seulement pendant le chargement : après le démarrage, le jeu continue même si une erreur arrive
+        window.addEventListener('error', function (e) {
+          if (document.getElementById('loading')) show((e && e.message) || String(e));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          if (document.getElementById('loading')) show(String(e && e.reason));
+        });
+        // si rien ne démarre après 15 secondes, on le dit
+        setTimeout(function () {
+          if (document.getElementById('loading') && !document.querySelector('canvas')) show('le jeu ne démarre pas (délai dépassé)');
+        }, 15000);
+      })();
+    </script>
     <div id="game"></div>
     <script type="module" src="./src/main.ts"></script>
   </body>

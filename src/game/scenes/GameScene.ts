@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONTROLS, DIFFICULTY, FIELD, PACE, PHYSICS, RULES, VIEW, type DifficultySettings } from '../config/gameConfig';
+import { CONTROLS, DIFFICULTY, FIELD, PACE, PHYSICS, RULES, TIMING_AI, VIEW, type DifficultySettings } from '../config/gameConfig';
 import { TURCAU, opponentById, stat, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
 import { Ball, pitchPos, stepBall } from '../entities/Ball';
 import { Fielder } from '../entities/Fielder';
@@ -27,10 +27,10 @@ import { Sound } from '../audio/Sound';
 import { Controls } from '../input/Controls';
 import { FieldRenderer } from '../world/FieldRenderer';
 import { BASES, MOUND, isFairPosition, project } from '../world/Projection';
-import { chance, clamp, dist, lerp, rand, segDist } from '../util/math';
+import { chance, clamp, dist, gauss, lerp, rand, segDist } from '../util/math';
 import type { HudState } from './HudScene';
 
-type Phase = 'intro' | 'banner' | 'sign' | 'windup' | 'pitch' | 'live' | 'walk' | 'dead' | 'over';
+type Phase = 'intro' | 'banner' | 'sign' | 'aim' | 'windup' | 'pitch' | 'live' | 'walk' | 'dead' | 'over';
 
 interface TeamRT {
   cfg: TeamConfig;
@@ -148,6 +148,11 @@ export class GameScene extends Phaser.Scene {
   private holdT = 0;
   private pointerTap = false;
   private wantPause = false;
+  private sprint = 0; // jauge de sprint (0 à 1)
+  private pitchBonus: 'super' | 'good' | null = null;
+  private meter!: Phaser.GameObjects.Graphics;
+  private meterText!: Phaser.GameObjects.Text;
+  private meterPos = 0;
 
   // ================================================================ création
   create() {
@@ -155,7 +160,7 @@ export class GameScene extends Phaser.Scene {
     this.diff = DIFFICULTY[s.difficulty];
     this.innings = s.innings;
     this.winHuman = windowsFor(this.diff.timingWindowMul);
-    this.winAI = windowsFor(1);
+    this.winAI = windowsFor(1, TIMING_AI);
     this.stats = new GameStats();
     this.runners = [];
     this.leaving = [];
@@ -169,6 +174,13 @@ export class GameScene extends Phaser.Scene {
     const opp = opponentById(s.opponent);
     this.field = new FieldRenderer(this, TURCAU, opp);
     this.overlay = this.add.graphics().setDepth(-500);
+    this.meter = this.add.graphics().setDepth(2600);
+    this.meterText = this.add
+      .text(0, 0, 'OK !', { fontFamily: '"Arial Black", Impact, sans-serif', fontSize: '26px', color: '#ffffff' })
+      .setOrigin(0.5)
+      .setStroke('#111111', 6)
+      .setDepth(2601)
+      .setVisible(false);
     for (let k = 1; k <= 4; k++) {
       const b = BASES[k % 4];
       const p = project(b.x, b.y);
@@ -303,6 +315,9 @@ export class GameScene extends Phaser.Scene {
       case 'sign':
         this.updateSign();
         break;
+      case 'aim':
+        this.updateAim();
+        break;
       case 'windup':
         if (this.phaseT >= this.phaseDur) this.release();
         break;
@@ -374,7 +389,7 @@ export class GameScene extends Phaser.Scene {
       f.rig.setSelected(false);
     }
     this.controlled = null;
-    this.offense.line[this.inning - 1] ??= 0;
+    if (this.offense.line[this.inning - 1] === undefined) this.offense.line[this.inning - 1] = 0;
     this.field.updateBoard(this.home.score, this.away.score, this.inning, this.top);
     const extra = this.inning > this.innings ? ' (manche supplémentaire)' : '';
     this.hud('hud-banner', {
@@ -458,6 +473,7 @@ export class GameScene extends Phaser.Scene {
       r.trot = false;
       r.isBatter = false;
       r.delay = 0;
+      r.boost = 1;
       r.rig.setView('front');
     }
     this.batterRunner = null;
@@ -467,6 +483,8 @@ export class GameScene extends Phaser.Scene {
       f.task = 'idle';
       f.coverBase = null;
       f.hasBall = false;
+      f.diveT = 0;
+      f.recoverT = 0;
       f.rig.setHoldingBall(false);
       f.rig.setSelected(false);
       f.rig.setPose(f.pos === 'C' ? 'crouch' : f.pos === 'P' ? 'stand' : 'ready');
@@ -532,6 +550,39 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (this.phaseT >= this.phaseDur) {
+      this.pitchBonus = null;
+      if (this.turcauDefends) {
+        this.setPhase('aim', 1.8);
+        this.swingQueue = [];
+        return;
+      }
+      this.pitcher.rig.play('windup');
+      this.setPhase('windup', PACE.windupTime);
+    }
+  }
+
+  /** Jauge de lancer : OK dans le vert = super lancer de Billy. */
+  private updateAim() {
+    const period = 1.0;
+    const u = (this.phaseT / period) % 1;
+    this.meterPos = u < 0.5 ? u * 2 : 2 - u * 2;
+    const pressed = this.inp.swing || this.swingQueue.length > 0;
+    if (pressed || this.phaseT >= this.phaseDur) {
+      const off = Math.abs(this.meterPos - 0.5);
+      const ps = this.pitcherStats(this.pitcher.def);
+      const type = this.plan!.type;
+      if (pressed && off < 0.1) {
+        this.pitchBonus = 'super';
+        this.plan = planPitch(ps, 1.1, 0.92, 0, type);
+        this.popup('SUPER LANCER !', '#7dff7a', 56);
+        this.pitcher.rig.flareEars(0.8);
+        this.pitcher.rig.wag(1);
+        Sound.play('select');
+      } else if (pressed && off < 0.24) {
+        this.pitchBonus = 'good';
+        this.plan = planPitch(ps, 1.04, 0.8, 0.03, type);
+        this.popup('BON LANCER', '#ffe14d', 44);
+      }
       this.pitcher.rig.play('windup');
       this.setPhase('windup', PACE.windupTime);
     }
@@ -553,7 +604,14 @@ export class GameScene extends Phaser.Scene {
     this.pitchLabelT = 1.6;
     Sound.play('throw');
     if (!this.offense.human) {
-      const d = aiSwing(plan, this.diff, this.winAI, this.strikes);
+      const bonus = this.pitchBonus;
+      const diff =
+        bonus === 'super'
+          ? { ...this.diff, aiTimingSd: this.diff.aiTimingSd + 55, aiWhiff: this.diff.aiWhiff + 0.18 }
+          : bonus === 'good'
+            ? { ...this.diff, aiTimingSd: this.diff.aiTimingSd + 22, aiWhiff: this.diff.aiWhiff + 0.07 }
+            : this.diff;
+      const d = aiSwing(plan, diff, this.winAI, this.strikes);
       if (d.swing) {
         const at = this.pitchStart + plan.path.T + d.deltaMs / 1000 - 0.03;
         this.aiSwingAt = clamp(at, this.pitchStart + 0.08, this.pitchStart + plan.path.T + 0.2);
@@ -783,6 +841,7 @@ export class GameScene extends Phaser.Scene {
     this.outsThisPlay = 0;
     this.settleT = 0;
     this.liveT = 0;
+    this.sprint = 0;
     if (this.turcauDefends && c.launch > 45 && c.exitSpeed < 75) this.catcher.rig.showMask(false);
     this.setPhase('live');
   }
@@ -808,6 +867,11 @@ export class GameScene extends Phaser.Scene {
     this.samplesAge += dt;
     const D = this.defense;
     const b = this.ball;
+
+    // sprint : taper sur les flèches fait courir plus vite
+    this.updateSprint(dt);
+    const boost = 1 + CONTROLS.sprintMax * this.sprint;
+    if (this.offense.human) for (const r of this.runners) r.boost = boost;
 
     // entrées de l'attaque humaine
     if (this.offense.human && b.state !== 'homerun') {
@@ -878,10 +942,37 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       if (D.human && f === this.controlled) {
+        if (f.recoverT > 0) {
+          f.recoverT -= dt;
+          continue;
+        }
+        // OK pendant la poursuite = plongeon (portée du gant plus grande)
+        const loose = b.state === 'batted' || b.state === 'loose' || b.state === 'thrown';
+        if (this.inp.swing && !f.hasBall && loose && f.diveT <= 0) {
+          this.inp.swing = false;
+          this.swingQueue = [];
+          f.diveT = CONTROLS.diveTime;
+          f.reaction = 0;
+          f.rig.play('slide', CONTROLS.diveTime + CONTROLS.diveRecover);
+          Sound.play('slide');
+          this.dust(f.x, f.y, 1.3);
+        }
+        const toT = Math.hypot(f.tx - f.x, f.ty - f.y);
+        if (f.diveT > 0) {
+          f.diveT -= dt;
+          // le plongeon part vers la balle
+          if (toT > 0.3) f.step(dt, f.tx - f.x, f.ty - f.y, 1.6);
+          if (f.diveT <= 0) f.recoverT = CONTROLS.diveRecover;
+          continue;
+        }
         const mv = this.controls.moveVector();
         if (mv.x || mv.y) {
           f.reaction = 0;
-          f.moveDir(dt, mv.x, mv.y);
+          if (!f.hasBall && toT > 1.5) {
+            // sprint guidé : la joueuse garde le cap vers la balle, les flèches l'accélèrent
+            const ml = Math.hypot(mv.x, mv.y);
+            f.step(dt, (0.7 * (f.tx - f.x)) / toT + (0.3 * mv.x) / ml, (0.7 * (f.ty - f.y)) / toT + (0.3 * mv.y) / ml, boost);
+          } else f.moveDir(dt, mv.x, mv.y, boost);
           f.x = clamp(f.x, -190, 190);
           f.y = clamp(f.y, -20, FIELD.fenceRadius - 2);
         } else if (this.diff.assist > 0) f.moveToward(dt, this.diff.assist);
@@ -892,10 +983,14 @@ export class GameScene extends Phaser.Scene {
     if (b.state === 'batted' || b.state === 'thrown' || b.state === 'loose') {
       for (const f of D.fielders) {
         if (this.ignoreCatch && this.ignoreCatch.f === f) continue;
-        if (b.sim.z > f.reachZ) continue;
+        if (b.sim.z > f.reachZ + (f.diveT > 0 ? 1.5 : 0)) continue;
         const sd = segDist(f.x, f.y, this.prev.x, this.prev.y, b.sim.x, b.sim.y);
-        if (sd.d <= f.catchR) {
-          if (this.tryCatch(f)) break;
+        if (sd.d <= f.reach(CONTROLS.diveReach)) {
+          const diving = f.diveT > 0;
+          if (this.tryCatch(f)) {
+            if (diving && this.ball.state === 'held') this.popup('PLONGEON !', '#7dff7a', 56);
+            break;
+          }
         }
       }
     }
@@ -1499,7 +1594,54 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: g, scale: 2.2, alpha: 0, y: p.y - 8, duration: 420, onComplete: () => g.destroy() });
   }
 
+  private updateSprint(dt: number) {
+    const c = this.controls;
+    let taps = 0;
+    for (const a of ['up', 'down', 'left', 'right'] as const) if (c.justDown(a)) taps++;
+    const held = c.isDown('up') || c.isDown('down') || c.isDown('left') || c.isDown('right');
+    this.sprint = Math.min(1, this.sprint + taps * CONTROLS.sprintPerTap);
+    this.sprint = Math.max(held ? CONTROLS.sprintHold : 0, this.sprint - dt * CONTROLS.sprintDecay);
+    if (this.sprint > 0.6 && taps) {
+      // poussière de sprint
+      const who = this.offense.human ? this.runners.find((r) => !r.settled) : this.controlled;
+      if (who) {
+        const p = who instanceof Runner ? who.pos : { x: who.x, y: who.y };
+        this.dust(p.x, p.y, 0.8);
+      }
+    }
+  }
+
+  private drawMeter() {
+    const g = this.meter;
+    g.clear();
+    const on = this.phase === 'aim';
+    this.meterText.setVisible(on);
+    if (!on) return;
+    const s = project(MOUND.x, MOUND.y, 0);
+    const w = 260;
+    const h = 30;
+    const x = s.x - w / 2;
+    const y = s.y - 150;
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(x + 4, y + 5, w, h, 12);
+    g.fillStyle(0xff5d5d, 1);
+    g.fillRoundedRect(x, y, w, h, 12);
+    g.fillStyle(0xffe14d, 1);
+    g.fillRect(x + w * 0.26, y, w * 0.48, h);
+    g.fillStyle(0x7dff7a, 1);
+    g.fillRect(x + w * 0.4, y, w * 0.2, h);
+    g.lineStyle(5, 0x111111, 1);
+    g.strokeRoundedRect(x, y, w, h, 12);
+    const nx = x + this.meterPos * w;
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(nx - 4, y - 10, 8, h + 20);
+    g.lineStyle(3, 0x111111, 1);
+    g.strokeRect(nx - 4, y - 10, 8, h + 20);
+    this.meterText.setPosition(s.x, y - 30).setText('OK dans le vert !');
+  }
+
   private drawOverlay() {
+    this.drawMeter();
     const g = this.overlay;
     g.clear();
     // anneau de timing (aide à la frappe)
@@ -1587,13 +1729,14 @@ export class GameScene extends Phaser.Scene {
     const bases = [1, 2, 3].map((k) => this.runners.some((r) => !r.out && !r.scored && r.onBase === k && r.target === k));
     let hint = '';
     if (O.human) {
-      if (this.phase === 'live') hint = CONTROLS.manualRunning ? 'Cours ! (E avancer · Q revenir)' : 'Cours, cours, cours !';
+      if (this.phase === 'live') hint = 'Tape vite sur les FLÈCHES pour courir plus vite !';
       else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'ESPACE ou OK : frapper quand la balle arrive au marbre';
     } else {
       if (this.phase === 'live') {
         if (this.holder && this.holder === this.controlled) hint = 'ESPACE ou OK : lancer !';
-        else hint = 'Ta joueuse court seule vers la balle  ·  FLÈCHES pour l’aider';
-      } else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'Billy lance… prépare-toi !';
+        else hint = 'FLÈCHES : sprint vers la balle   ·   OK : plonger !';
+      } else if (this.phase === 'aim') hint = 'ESPACE ou OK quand l’aiguille est dans le VERT : super lancer !';
+      else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'Billy lance… prépare-toi !';
     }
     const batter = this.batterDef;
     const st: HudState = {
@@ -1615,6 +1758,7 @@ export class GameScene extends Phaser.Scene {
       offenseHuman: O.human,
       hint,
       pitchLabel: this.pitchLabelT > 0 && this.plan ? this.plan.label : '',
+      sprint: this.phase === 'live' && this.ball.state !== 'homerun' ? Math.round(this.sprint * 10) / 10 : -1,
       muted: Save.settings.muted,
     };
     const key = JSON.stringify(st);
@@ -1632,7 +1776,7 @@ export class GameScene extends Phaser.Scene {
     const h = this.home.score;
     const a = this.away.score;
     const result: GameSummary['result'] = h > a ? 'win' : h < a ? 'loss' : 'tie';
-    const ids = [...new Set([...Object.values(TURCAU.defense), ...TURCAU.lineup, ...(TURCAU.rotation ?? []).flatMap((r) => Object.values(r))].map((c) => c!.id))];
+    const ids = [...new Set([...Object.values(TURCAU.defense), ...TURCAU.lineup, ...(TURCAU.rotation ?? []).reduce<CharacterDef[]>((a, r) => a.concat(Object.values(r) as CharacterDef[]), [])].map((c) => c!.id))];
     const mvp = this.stats.mvp(ids);
     const hr = this.stats.sum(ids, 'hr');
     const k = this.stats.sum(ids, 'k');

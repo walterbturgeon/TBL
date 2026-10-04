@@ -25,6 +25,8 @@ export class Fielder {
   decideT = 0;
   human = false;
   speedMul = 1;
+  diveT = 0; // plongeon en cours
+  recoverT = 0; // se relève après un plongeon
   readonly runSpeed: number;
   readonly throwSpeed: number;
   readonly catchR: number;
@@ -78,14 +80,24 @@ export class Fielder {
     return d - step;
   }
 
-  /** Déplacement manuel (clavier). dir en coordonnées du monde, longueur ≤ 1. */
-  moveDir(dt: number, dx: number, dy: number) {
-    const l = Math.hypot(dx, dy);
-    if (l < 0.01) return;
-    this.x += (dx / l) * this.speed * dt;
-    this.y += (dy / l) * this.speed * dt;
+  /** Déplacement manuel (clavier). dir en coordonnées du monde. La cible devient la position. */
+  moveDir(dt: number, dx: number, dy: number, mul = 1) {
+    this.step(dt, dx, dy, mul);
     this.tx = this.x;
     this.ty = this.y;
+  }
+
+  /** Déplacement dans une direction, sans changer la cible (sprint guidé vers la balle). */
+  step(dt: number, dx: number, dy: number, mul = 1) {
+    const l = Math.hypot(dx, dy);
+    if (l < 0.01) return;
+    this.x += (dx / l) * this.speed * mul * dt;
+    this.y += (dy / l) * this.speed * mul * dt;
+  }
+
+  /** Portée du gant (plus grande pendant un plongeon). */
+  reach(diveReach: number) {
+    return this.diveT > 0 ? this.catchR * diveReach : this.catchR;
   }
 
   sync(dt: number) {

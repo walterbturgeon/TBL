@@ -153,8 +153,8 @@ export class OptionsScene extends Phaser.Scene {
     c.add(panel(this, 420, 150, 1080, 780, 0x1b2a6b, 1));
     c.add(cartoonText(this, 960, 215, 'COMMANDES', 56, '#ffd23f').setOrigin(0.5));
     const rows: [string, string][] = [
-      ['ESPACE  ou  OK', 'Frapper  ·  lancer la balle'],
-      ['FLÈCHES', 'Aider ta joueuse à courir (si tu veux)'],
+      ['ESPACE  ou  OK', 'Frapper  ·  lancer  ·  plonger  ·  super lancer'],
+      ['FLÈCHES', 'Tape vite : sprint !'],
       ['ÉCHAP  ou  RETOUR', 'Pause'],
     ];
     rows.forEach(([k, d], i) => {

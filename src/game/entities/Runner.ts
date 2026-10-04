@@ -26,6 +26,7 @@ export class Runner {
   delay = 0;
   trot = false;
   sliding = 0;
+  boost = 1; // sprint (flèches tapées par la joueuse)
   readonly speed: number;
   /** quitte le terrain (retrait ou point) : marche vers l'abri */
   exiting: { x: number; y: number; t: number } | null = null;
@@ -90,7 +91,7 @@ export class Runner {
     if (this.holdAt !== null && goal > this.holdAt && this.d <= this.holdAt + 0.01) goal = this.holdAt;
     const dir = Math.sign(goal - this.d);
     // tour des buts après un circuit : accéléré pour garder le rythme
-    const sp = this.speed * (this.trot ? 2.2 : 1);
+    const sp = this.speed * (this.trot ? 2.2 : this.boost);
     if (dir !== 0) {
       const nd = this.d + dir * sp * dt;
       this.d = dir > 0 ? Math.min(goal, nd) : Math.max(goal, nd);

@@ -1,4 +1,6 @@
 import { TIMING, type PitchType } from '../config/gameConfig';
+
+type TimingBase = { perfect: number; good: number; ok: number; max: number };
 import { chance, DEG, rand } from '../util/math';
 
 export interface TimingWindows {
@@ -8,8 +10,8 @@ export interface TimingWindows {
   max: number;
 }
 
-export function windowsFor(mul: number): TimingWindows {
-  return { perfect: TIMING.perfect * mul, good: TIMING.good * mul, ok: TIMING.ok * mul, max: TIMING.max * mul };
+export function windowsFor(mul: number, base: TimingBase = TIMING): TimingWindows {
+  return { perfect: base.perfect * mul, good: base.good * mul, ok: base.ok * mul, max: base.max * mul };
 }
 
 export type ContactQuality = 'perfect' | 'good' | 'ok' | 'weak';
@@ -52,7 +54,7 @@ export function computeContact(
   powerMul = 1,
 ): Contact | null {
   const a = Math.abs(deltaMs);
-  const max = inZone ? w.max : w.max * 0.75;
+  const max = inZone ? w.max : w.max * 0.9;
   if (a > max) return null;
 
   let quality: ContactQuality;
@@ -65,10 +67,10 @@ export function computeContact(
     q = 0.86;
   } else if (a <= w.ok) {
     quality = 'ok';
-    q = 0.7;
+    q = 0.76;
   } else {
     quality = 'weak';
-    q = 0.52;
+    q = 0.6;
   }
   if (!inZone) q *= 0.82;
   if (deltaMs > 0) q *= 1 - 0.22 * (deltaMs / w.max);
@@ -88,7 +90,7 @@ export function computeContact(
       launch = r < 0.45 ? rand(-7, 9) : r < 0.9 ? rand(10, 36) : rand(40, 58);
       break;
     case 'ok':
-      launch = r < 0.55 ? rand(-14, 5) : r < 0.85 ? rand(8, 30) : rand(45, 70);
+      launch = r < 0.45 ? rand(-12, 5) : r < 0.9 ? rand(8, 30) : rand(45, 70);
       break;
     default:
       launch = r < 0.6 ? rand(-22, 0) : r < 0.85 ? rand(50, 76) : rand(5, 20);

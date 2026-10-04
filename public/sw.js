@@ -1,9 +1,9 @@
-/* Service worker de Turcau Baseball League.
- * - index.html : réseau d'abord, cache ensuite (pour recevoir les mises à jour).
- * - autres fichiers (JS, icônes) : cache d'abord, réseau ensuite.
- * Après une première ouverture, le jeu fonctionne hors connexion.
+﻿/* Service worker de Turcau Baseball League.
+ * - index.html : rÃ©seau d'abord, cache ensuite (pour recevoir les mises Ã  jour).
+ * - autres fichiers (JS, icÃ´nes) : cache d'abord, rÃ©seau ensuite.
+ * AprÃ¨s une premiÃ¨re ouverture, le jeu fonctionne hors connexion.
  */
-const CACHE = 'turcau-bbl-v2';
+const CACHE = 'turcau-bbl-v3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
