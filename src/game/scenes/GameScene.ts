@@ -30,6 +30,7 @@ import { BASES, MOUND, isFairPosition, project } from '../world/Projection';
 import { chance, clamp, dist, gauss, lerp, rand, segDist } from '../util/math';
 import type { HudState } from './HudScene';
 import { isTouch } from '../util/device';
+import { traceLive } from '../util/trace';
 
 type Phase = 'intro' | 'banner' | 'sign' | 'aim' | 'windup' | 'pitch' | 'live' | 'walk' | 'dead' | 'over';
 
@@ -279,6 +280,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setPhase(p: Phase, dur = 0) {
+    traceLive('phase', `partie : manche ${this.inning}${this.top ? '▲' : '▼'}, ${this.outs} retrait(s), étape « ${p} »`);
     this.phase = p;
     this.phaseT = 0;
     this.phaseDur = dur;

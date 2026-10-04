@@ -8,21 +8,7 @@ import { LOW, QUALITY } from '../util/quality';
 /** Finesse des petits textes (numéros) : 1 en mode Canvas, où une valeur plus grande agrandit le texte. */
 const textRes = (r: number) => (QUALITY === 'canvas' ? 1 : r);
 
-/** Textures créées par chaque scène : retirées de la mémoire quand la scène se ferme. */
-const owned = new WeakMap<Phaser.Scene, Set<string>>();
-function track(scene: Phaser.Scene, key: string) {
-  let set = owned.get(scene);
-  if (!set) {
-    const s = new Set<string>();
-    set = s;
-    owned.set(scene, s);
-    scene.events.once('shutdown', () => {
-      for (const k of s) if (scene.textures.exists(k)) scene.textures.remove(k);
-      owned.delete(scene);
-    });
-  }
-  set.add(key);
-}
+import { bakeToAtlas } from '../util/atlas';
 
 /**
  * Personnage cartoon dessiné en vecteurs (contours noirs épais, aplats de couleur).
@@ -417,19 +403,10 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     const b = PART_BOUNDS[name];
     const extra = name === 'face' ? '_' + this.expression : '';
     const key = 'rig_' + this.sig + '_' + this.view + '_' + name + extra;
-    const k = this.res;
-    const tm = this.scene.textures;
-    if (!tm.exists(key)) {
-      const cmds = g.commandBuffer.slice();
-      g.clear();
-      g.scaleCanvas(k, k);
-      g.translateCanvas(-b[0], -b[1]);
-      for (const c of cmds) g.commandBuffer.push(c);
-      g.generateTexture(key, Math.ceil((b[2] - b[0]) * k), Math.ceil((b[3] - b[1]) * k));
-      track(this.scene, key);
-    }
+    // toutes les pièces vont dans l'atlas partagé de la scène (quelques canvas au lieu de centaines)
+    const { atlas, frame } = bakeToAtlas(this.scene, key, g, b, this.res);
     g.clear();
-    img.setTexture(key);
+    img.setTexture(atlas, frame);
     img.setOrigin(-b[0] / (b[2] - b[0]), -b[1] / (b[3] - b[1]));
   }
 

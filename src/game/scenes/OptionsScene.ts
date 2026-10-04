@@ -90,6 +90,7 @@ export class OptionsScene extends Phaser.Scene {
         },
       },
       { label: () => 'COMMANDES', act: () => this.showControls() },
+      { label: () => 'DIAGNOSTIC (si le jeu plante)', act: () => (location.href = './diag.html') },
       {
         label: () => (this.confirmReset ? 'CONFIRMER : EFFACER LES STATISTIQUES ?' : 'EFFACER LES STATISTIQUES'),
         act: () => {

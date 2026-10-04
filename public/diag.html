@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr-CA">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diagnostic Turcau</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px 40px;
+        background: #0f1a3d;
+        color: #fff;
+        font: 22px/1.35 Arial, sans-serif;
+      }
+      h1 { color: #ffd23f; margin: 0 0 12px; font-size: 34px; }
+      .row { display: flex; gap: 16px; border-bottom: 1px solid #2a3a70; padding: 4px 0; }
+      .k { width: 360px; color: #c9d4ff; flex: none; }
+      .ok { color: #7dff7a; }
+      .bad { color: #ff6b6b; font-weight: bold; }
+      .warn { color: #ffd23f; }
+      #log { white-space: pre-wrap; font-size: 18px; color: #ffd23f; }
+      a { color: #7fd3ff; font-size: 26px; }
+      .cols { display: flex; gap: 40px; }
+      .cols > div { flex: 1; }
+    </style>
+  </head>
+  <body>
+    <h1>Diagnostic — Turcau Baseball League</h1>
+    <p>Prends une photo de cet écran et envoie-la. <a id="back" href="./">Retour au jeu</a></p>
+    <div class="cols">
+      <div id="out"></div>
+      <div>
+        <div class="row"><span class="k">Journal du jeu (dernier lancement)</span></div>
+        <div id="log">(vide)</div>
+      </div>
+    </div>
+    <script>
+      // ES5 seulement : cette page doit marcher sur les plus vieux navigateurs.
+      var out = document.getElementById('out');
+      function row(k, v, cls) {
+        var d = document.createElement('div');
+        d.className = 'row';
+        d.innerHTML = '<span class="k"></span><span class="' + (cls || '') + '"></span>';
+        d.firstChild.textContent = k;
+        d.lastChild.textContent = v;
+        out.appendChild(d);
+        return d.lastChild;
+      }
+      function test(k, fn) {
+        try {
+          var r = fn();
+          row(k, r === true ? 'oui' : r === false ? 'NON' : String(r), r === false ? 'bad' : 'ok');
+        } catch (e) {
+          row(k, 'ERREUR : ' + e, 'bad');
+        }
+      }
+
+      row('Navigateur', navigator.userAgent, 'warn');
+      test('Écran', function () { return screen.width + ' × ' + screen.height + ' (fenêtre ' + innerWidth + ' × ' + innerHeight + ', ratio ' + (window.devicePixelRatio || 1) + ')'; });
+      test('Mémoire de l’appareil', function () { return navigator.deviceMemory ? navigator.deviceMemory + ' Go' : 'inconnue'; });
+      test('Processeurs', function () { return navigator.hardwareConcurrency || 'inconnu'; });
+      test('JavaScript moderne (async, classes)', function () { new Function('class A{}; return (async function(){ return 1; })();')(); return true; });
+      test('Opérateur ?? et ?.', function () { new Function('var a=null; return a ?? a?.b;')(); return true; });
+      test('Modules JavaScript', function () { return 'noModule' in document.createElement('script'); });
+      test('localStorage', function () { localStorage.setItem('t', '1'); localStorage.removeItem('t'); return true; });
+      test('Canvas 2D', function () { return !!document.createElement('canvas').getContext('2d'); });
+      test('WebGL', function () {
+        var c = document.createElement('canvas');
+        var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+        if (!gl) return false;
+        return 'oui (texture max ' + gl.getParameter(gl.MAX_TEXTURE_SIZE) + ')';
+      });
+      test('Son (Web Audio)', function () { return !!(window.AudioContext || window.webkitAudioContext); });
+      test('Service worker (hors ligne)', function () { return 'serviceWorker' in navigator; });
+      test('Événements Pointer', function () { return 'PointerEvent' in window; });
+
+      // images par seconde
+      var fpsCell = row('Images par seconde', 'mesure…', 'warn');
+      var frames = 0, t0 = 0;
+      function tick(t) {
+        if (!t0) t0 = t;
+        frames++;
+        if (t - t0 < 2000) requestAnimationFrame(tick);
+        else {
+          fpsCell.textContent = Math.round((frames * 1000) / (t - t0));
+          fpsCell.className = 'ok';
+          stress();
+        }
+      }
+      requestAnimationFrame(tick);
+
+      // test de charge : beaucoup de petits canvas, comme le jeu
+      var KEY = 'turcau-bbl.diag-canvas';
+      var prev = localStorage.getItem(KEY);
+      if (prev && prev.indexOf('fini') < 0) row('Test canvas PRÉCÉDENT', 'arrêté à ' + prev + ' canvas (plantage probable)', 'bad');
+      function stress() {
+        var cell = row('Test : 600 petits canvas', 'en cours…', 'warn');
+        var keep = [];
+        var n = 0;
+        function step() {
+          for (var i = 0; i < 25; i++) {
+            var c = document.createElement('canvas');
+            c.width = 80;
+            c.height = 90;
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#f00';
+            ctx.beginPath();
+            ctx.arc(40, 45, 30, 0, 6.28);
+            ctx.fill();
+            keep.push(c);
+            n++;
+          }
+          localStorage.setItem(KEY, String(n));
+          cell.textContent = n + ' canvas';
+          if (n < 600) setTimeout(step, 30);
+          else {
+            localStorage.setItem(KEY, n + ' fini');
+            cell.textContent = 'oui (' + n + ' canvas)';
+            cell.className = 'ok';
+          }
+        }
+        step();
+      }
+
+      // journal écrit par le jeu
+      try {
+        var log = localStorage.getItem('turcau-bbl.trace') || '(vide)';
+        var prevLog = localStorage.getItem('turcau-bbl.trace-prev');
+        document.getElementById('log').textContent = log + (prevLog ? '\n\n— lancement d’avant —\n' + prevLog : '');
+      } catch (e) {}
+    </script>
+  </body>
+</html>
