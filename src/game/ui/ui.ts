@@ -90,6 +90,15 @@ export function statBar(scene: Phaser.Scene, x: number, y: number, label: string
   return [g, t, v];
 }
 
+/**
+ * Bouton Retour de la télécommande (ou Lecture/Pause) : appelle fn tant que la scène est active.
+ * Voir main.ts pour la détection de la touche.
+ */
+export function onTvBack(scene: Phaser.Scene, fn: () => void) {
+  scene.game.events.on('tv-back', fn);
+  scene.events.once('shutdown', () => scene.game.events.off('tv-back', fn));
+}
+
 /** Bascule le plein écran (doit venir d'un geste de l'utilisateur). */
 export function toggleFullscreen(scene: Phaser.Scene) {
   if (scene.scale.isFullscreen) scene.scale.stopFullscreen();

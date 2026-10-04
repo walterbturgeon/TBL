@@ -5,7 +5,7 @@ import { BILLY, STELLA } from '../config/dogs';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
-import { button, cartoonText, panel, type MenuButton } from '../ui/ui';
+import { button, cartoonText, onTvBack, panel, type MenuButton } from '../ui/ui';
 import { rand } from '../util/math';
 import type { GameSummary } from './GameScene';
 
@@ -96,6 +96,7 @@ export class ResultScene extends Phaser.Scene {
     ];
     this.buttons.forEach((b, i) => b.c.on('pointerover', () => this.select(i)));
     this.select(0);
+    onTvBack(this, () => this.go('Menu'));
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       const k = e.key;
       if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd' || k === 'A' || k === 'D') this.select(1 - this.sel);

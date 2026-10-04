@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Save } from '../systems/Save';
 import { Sound } from '../audio/Sound';
 import { hex, rand } from '../util/math';
-import { FONT, cartoonText, panel } from '../ui/ui';
+import { cartoonText, onTvBack, panel } from '../ui/ui';
 
 export interface HudState {
   homeName: string;
@@ -88,6 +88,29 @@ export class HudScene extends Phaser.Scene {
     });
 
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => this.pauseKey(e));
+    // Retour de la télécommande : ferme la pause si elle est ouverte
+    onTvBack(this, () => {
+      if (this.pause) this.closePause();
+    });
+
+    // bouton pause à l'écran (souris, tactile, curseur de la télé)
+    const pb = this.add.container(70, 1030);
+    const pg = this.add.graphics();
+    pg.fillStyle(0x0f1a3d, 0.85);
+    pg.fillCircle(0, 0, 34);
+    pg.lineStyle(4, 0x111111, 1);
+    pg.strokeCircle(0, 0, 34);
+    pg.lineStyle(2, 0xffd23f, 0.9);
+    pg.strokeCircle(0, 0, 28);
+    pg.fillStyle(0xffffff, 1);
+    pg.fillRoundedRect(-11, -13, 8, 26, 2);
+    pg.fillRoundedRect(3, -13, 8, 26, 2);
+    pb.add(pg);
+    pb.setSize(72, 72);
+    pb.setInteractive({ useHandCursor: true });
+    pb.on('pointerdown', () => {
+      if (!this.pause) this.game.events.emit('tv-back');
+    });
   }
 
   update(_t: number, dms: number) {

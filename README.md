@@ -12,6 +12,8 @@ Fait avec TypeScript, Vite et Phaser 3. Tous les personnages sont dessinés en v
 | FLÈCHES (ou WASD) | Aider la joueuse à courir (facultatif) |
 | ÉCHAP | Pause |
 
+Sur une télé (Fire TV, navigateur Silk) : OK = ESPACE, Retour ou Lecture/Pause = pause. Si le navigateur montre un curseur, un clic n'importe où dans la partie frappe et lance, et le bouton ❚❚ en bas à gauche met en pause.
+
 Les coureuses courent seules. En défensive, la joueuse la plus proche court seule vers la balle et lance seule si personne n'appuie sur ESPACE.
 
 Touches avancées (désactivées par défaut) : voir `CONTROLS` dans `src/game/config/gameConfig.ts`.

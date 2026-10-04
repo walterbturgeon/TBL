@@ -5,7 +5,7 @@ import Phaser from 'phaser';
  * Une manette pourra plus tard alimenter les mêmes actions (voir pollGamepad).
  */
 export type ActionName =
-  | 'swing' // ESPACE : frapper / lancer
+  | 'swing' // ESPACE ou OK : frapper / lancer
   | 'up'
   | 'down'
   | 'left'
@@ -21,7 +21,7 @@ export type ActionName =
   | 'base4';
 
 const BINDINGS: Record<ActionName, string[]> = {
-  swing: ['SPACE'],
+  swing: ['SPACE', 'ENTER'], // ENTRÉE = bouton OK de la télécommande
   up: ['W', 'UP'],
   down: ['S', 'DOWN'],
   left: ['A', 'LEFT'],

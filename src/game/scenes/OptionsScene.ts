@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DIFFICULTY, type Difficulty } from '../config/gameConfig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
-import { cartoonText, panel, toggleFullscreen } from '../ui/ui';
+import { cartoonText, onTvBack, panel, toggleFullscreen } from '../ui/ui';
 
 interface Item {
   label: () => string;
@@ -105,6 +105,12 @@ export class OptionsScene extends Phaser.Scene {
     this.scale.on('enterfullscreen', () => this.refresh());
     this.scale.on('leavefullscreen', () => this.refresh());
 
+    onTvBack(this, () => {
+      if (this.controlsPanel) {
+        this.controlsPanel.destroy();
+        this.controlsPanel = null;
+      } else this.back();
+    });
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       Sound.unlock();
       const k = e.key;
@@ -147,9 +153,9 @@ export class OptionsScene extends Phaser.Scene {
     c.add(panel(this, 420, 150, 1080, 780, 0x1b2a6b, 1));
     c.add(cartoonText(this, 960, 215, 'COMMANDES', 56, '#ffd23f').setOrigin(0.5));
     const rows: [string, string][] = [
-      ['ESPACE', 'Frapper  ·  lancer la balle'],
+      ['ESPACE  ou  OK', 'Frapper  ·  lancer la balle'],
       ['FLÈCHES', 'Aider ta joueuse à courir (si tu veux)'],
-      ['ÉCHAP', 'Pause'],
+      ['ÉCHAP  ou  RETOUR', 'Pause'],
     ];
     rows.forEach(([k, d], i) => {
       c.add(cartoonText(this, 860, 360 + i * 100, k, 40, '#7fd3ff').setOrigin(1, 0.5));
@@ -157,6 +163,7 @@ export class OptionsScene extends Phaser.Scene {
     });
     c.add(cartoonText(this, 960, 690, 'Les coureuses courent toutes seules.', 28, '#7dff7a').setOrigin(0.5));
     c.add(cartoonText(this, 960, 740, 'La défenseure court seule vers la balle et lance seule si tu attends.', 24, '#7dff7a').setOrigin(0.5));
+    c.add(cartoonText(this, 960, 800, 'Avec un curseur ou un écran tactile : clique n’importe où pour frapper.', 22, '#c9d4ff').setOrigin(0.5));
     c.add(cartoonText(this, 960, 890, 'Appuie sur une touche pour fermer', 20, '#c9d4ff').setOrigin(0.5));
     const z = this.add.zone(960, 540, 1920, 1080).setInteractive();
     z.on('pointerdown', () => {

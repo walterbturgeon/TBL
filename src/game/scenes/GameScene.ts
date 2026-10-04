@@ -146,6 +146,8 @@ export class GameScene extends Phaser.Scene {
   private inp = { swing: false, advance: false, retreat: false, pause: false, mute: false, base: 0 };
   private swingQueue: number[] = [];
   private holdT = 0;
+  private pointerTap = false;
+  private wantPause = false;
 
   // ================================================================ création
   create() {
@@ -184,15 +186,25 @@ export class GameScene extends Phaser.Scene {
     this.ball = new Ball(this);
     this.controls = new Controls(this);
 
-    this.input.keyboard!.on('keydown-SPACE', (e: KeyboardEvent) => {
-      // l'heure exacte de la touche donne un timing précis, indépendant des images
-      const t = this.gameTime + (e.timeStamp - this.perfAnchor) / 1000;
-      this.swingQueue.push(t);
+    // l'heure exacte de la touche donne un timing précis, indépendant des images
+    const action = (stamp: number) => this.swingQueue.push(this.gameTime + (stamp - this.perfAnchor) / 1000);
+    this.input.keyboard!.on('keydown-SPACE', (e: KeyboardEvent) => action(e.timeStamp));
+    this.input.keyboard!.on('keydown-ENTER', (e: KeyboardEvent) => action(e.timeStamp));
+    // un clic (souris, écran tactile ou curseur de la télé) = même action que ESPACE
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      action(p.event.timeStamp);
+      this.pointerTap = true;
     });
+    const onBack = () => {
+      if (!this.scene.isPaused()) this.wantPause = true;
+    };
+    this.game.events.on('tv-back', onBack);
+    this.events.once('shutdown', () => this.game.events.off('tv-back', onBack));
     this.events.off('resume');
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys();
       this.swingQueue = [];
+      this.pointerTap = false;
     });
     this.events.once('shutdown', () => {
       Sound.ambience(false);
@@ -330,10 +342,12 @@ export class GameScene extends Phaser.Scene {
 
   private readInput() {
     const c = this.controls;
-    this.inp.swing = c.justDown('swing');
+    this.inp.swing = c.justDown('swing') || this.pointerTap;
+    this.pointerTap = false;
     this.inp.advance = c.justDown('advance') && CONTROLS.manualRunning;
     this.inp.retreat = c.justDown('retreat') && CONTROLS.manualRunning;
-    this.inp.pause = c.justDown('pause');
+    this.inp.pause = c.justDown('pause') || this.wantPause;
+    this.wantPause = false;
     this.inp.mute = c.justDown('mute');
     const b = c.justDown('base1') ? 1 : c.justDown('base2') ? 2 : c.justDown('base3') ? 3 : c.justDown('base4') ? 4 : 0;
     this.inp.base = CONTROLS.numberKeyThrows ? b : 0;
@@ -366,8 +380,8 @@ export class GameScene extends Phaser.Scene {
     this.hud('hud-banner', {
       title: `MANCHE ${this.inning} ${this.top ? '▲' : '▼'}${extra}`,
       sub: this.offense.human
-        ? `${this.offense.cfg.name} au bâton !  Appuie sur ESPACE quand la balle arrive`
-        : 'En défensive !  ESPACE pour lancer la balle',
+        ? `${this.offense.cfg.name} au bâton !  Appuie sur ESPACE (ou OK) quand la balle arrive`
+        : 'En défensive !  ESPACE (ou OK) pour lancer la balle',
       color: this.offense.human ? '#7fd3ff' : '#ffd23f',
     });
     Sound.play('crowd', 0.6);
@@ -1302,7 +1316,7 @@ export class GameScene extends Phaser.Scene {
     if (this.playBatter) this.stats.hit(this.playBatter, 4);
     this.offense.hits++;
     this.batterRunner?.rig.play('celebrate', 1.5);
-    this.popup('CIRCUIT !!!', '#ffd23f', 110, 'Appuie sur ESPACE pour accélérer');
+    this.popup('CIRCUIT !!!', '#ffd23f', 110, 'Appuie sur ESPACE (ou OK) pour accélérer');
     Sound.play('homerun');
     this.field.cheer(1);
     this.hud('hud-confetti', this.offense.human);
@@ -1574,10 +1588,10 @@ export class GameScene extends Phaser.Scene {
     let hint = '';
     if (O.human) {
       if (this.phase === 'live') hint = CONTROLS.manualRunning ? 'Cours ! (E avancer · Q revenir)' : 'Cours, cours, cours !';
-      else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'ESPACE : frapper quand la balle arrive au marbre';
+      else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'ESPACE ou OK : frapper quand la balle arrive au marbre';
     } else {
       if (this.phase === 'live') {
-        if (this.holder && this.holder === this.controlled) hint = 'ESPACE : lancer !';
+        if (this.holder && this.holder === this.controlled) hint = 'ESPACE ou OK : lancer !';
         else hint = 'Ta joueuse court seule vers la balle  ·  FLÈCHES pour l’aider';
       } else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'Billy lance… prépare-toi !';
     }

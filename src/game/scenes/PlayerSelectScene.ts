@@ -5,7 +5,7 @@ import { BILLY, STELLA } from '../config/dogs';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
-import { cartoonText, panel, statBar, toggleFullscreen } from '../ui/ui';
+import { cartoonText, onTvBack, panel, statBar, toggleFullscreen } from '../ui/ui';
 
 const COLS = 6;
 const W = 296;
@@ -106,6 +106,7 @@ export class PlayerSelectScene extends Phaser.Scene {
     this.select(0);
 
     const n = roster.length;
+    onTvBack(this, () => this.back());
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       Sound.unlock();
       const k = e.key;

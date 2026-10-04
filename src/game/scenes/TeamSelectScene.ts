@@ -4,7 +4,7 @@ import { OPPONENTS, TURCAU, stat, type TeamConfig } from '../config/teams';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
-import { cartoonText, panel, toggleFullscreen } from '../ui/ui';
+import { cartoonText, onTvBack, panel, toggleFullscreen } from '../ui/ui';
 import { hex } from '../util/math';
 
 /** Choix de l'équipe adverse avant la partie. */
@@ -46,12 +46,13 @@ export class TeamSelectScene extends Phaser.Scene {
       this.frames.push(this.add.graphics());
     });
     cartoonText(this, 960, 900, `Difficulté : ${DIFFICULTY[Save.settings.difficulty].label}   ·   ${Save.settings.innings} manche${Save.settings.innings > 1 ? 's' : ''}`, 26, '#c9d4ff').setOrigin(0.5);
-    cartoonText(this, 960, 1010, '← → choisir   ·   ESPACE ou ENTRÉE : jouer   ·   ÉCHAP : retour', 24, '#ffffff').setOrigin(0.5);
+    cartoonText(this, 960, 1010, '← → choisir   ·   ESPACE ou OK : jouer   ·   ÉCHAP ou RETOUR : menu', 24, '#ffffff').setOrigin(0.5);
 
     const saved = OPPONENTS.findIndex((t) => t.id === Save.settings.opponent);
     this.sel = -1;
     this.select(Math.max(0, saved));
 
+    onTvBack(this, () => this.back());
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       Sound.unlock();
       const k = e.key;

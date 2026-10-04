@@ -37,6 +37,24 @@ const unlock = () => {
 window.addEventListener('keydown', unlock, { capture: true });
 window.addEventListener('pointerdown', unlock, { capture: true });
 
+// Télécommande : Retour et Lecture/Pause = pause dans la partie, retour au menu ailleurs.
+const TV_KEYS = ['GoBack', 'BrowserBack', 'MediaPlayPause', 'MediaPlay', 'MediaPause'];
+window.addEventListener('keydown', (e) => {
+  if (TV_KEYS.includes(e.key) || e.keyCode === 179) {
+    e.preventDefault();
+    game.events.emit('tv-back');
+  }
+});
+// Sur une télé, le bouton Retour du navigateur quitte la page : on le remplace par « pause ».
+const isTV = /AFT|Silk|SmartTV|SMART-TV|Tizen|Web0S|webOS|BRAVIA|GoogleTV|Android TV|CrKey/i.test(navigator.userAgent);
+if (isTV) {
+  history.pushState({ tbl: true }, '');
+  window.addEventListener('popstate', () => {
+    history.pushState({ tbl: true }, '');
+    game.events.emit('tv-back');
+  });
+}
+
 // La barre d'espace et les flèches ne doivent pas faire défiler la page.
 window.addEventListener('keydown', (e) => {
   if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
