@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr-CA">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#1b2a6b" />
+    <meta name="description" content="Turcau Baseball League — jeu de baseball arcade familial." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <title>Turcau Baseball League</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #0f1a3d;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font: 900 32px "Arial Black", "Segoe UI Black", Impact, sans-serif;
+        letter-spacing: 2px;
+        text-shadow: 3px 3px 0 #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">TURCAU BASEBALL LEAGUE…</div>
+    <div id="game"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
