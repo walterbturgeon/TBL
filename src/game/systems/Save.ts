@@ -16,6 +16,7 @@ export interface Settings {
   timingAid: boolean;
   opponent: string;
   quality: Quality;
+  stadiumSounds: boolean;
 }
 
 export interface CareerLine {
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: Settings = {
   timingAid: true,
   opponent: 'visiteur',
   quality: isTVDevice() ? 'light' : 'normal',
+  stadiumSounds: true,
 };
 
 const DEFAULT_RECORDS: Records = {

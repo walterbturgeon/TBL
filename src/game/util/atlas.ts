@@ -88,6 +88,7 @@ export function bakeToAtlas(
   g: Phaser.GameObjects.Graphics,
   b: [number, number, number, number],
   res: number,
+  extra?: (ctx: CanvasRenderingContext2D, at: (lx: number, ly: number) => [number, number], res: number) => void,
 ): { atlas: string; frame: string } {
   const reg = registry(scene);
   const known = reg.frames.get(name);
@@ -120,6 +121,16 @@ export function bakeToAtlas(
   const render = (g as unknown as { renderCanvas: (...a: unknown[]) => void }).renderCanvas;
   render.call(g, scene.sys.game.renderer, g, cam, null, reg.ctx, false);
   g.clear();
+  if (extra) {
+    // texte dessiné directement dans l'atlas (évite un canvas par texte)
+    const at = (lx: number, ly: number): [number, number] => [ox + (lx - b[0]) * res, oy + (ly - b[1]) * res];
+    reg.ctx.save();
+    reg.ctx.beginPath();
+    reg.ctx.rect(ox, oy, w, h);
+    reg.ctx.clip();
+    extra(reg.ctx, at, res);
+    reg.ctx.restore();
+  }
 
   const tex = scene.textures.get(reg.key);
   tex.add(name, 0, ox, oy, w, h);

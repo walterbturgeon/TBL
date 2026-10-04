@@ -278,8 +278,6 @@ export class CartoonRig extends Phaser.GameObjects.Container {
   private capG: Phaser.GameObjects.Graphics;
   private maskG?: Phaser.GameObjects.Graphics;
   private bat: Phaser.GameObjects.Graphics;
-  private numText: Phaser.GameObjects.Text;
-  private nameText: Phaser.GameObjects.Text;
   private fx: Phaser.GameObjects.Container;
 
   private time = 0;
@@ -355,16 +353,6 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     this.im.ring.setVisible(false);
     this.im.ballDot.setVisible(false);
 
-    const font = '"Arial Black", "Segoe UI Black", Impact, sans-serif';
-    this.numText = scene.add
-      .text(0, -36, String(look.number), { fontFamily: font, fontSize: '12px', color: '#' + look.trim.toString(16).padStart(6, '0') })
-      .setOrigin(0.5)
-      .setResolution(textRes(3));
-    this.numText.setStroke('#111111', 2);
-    this.nameText = scene.add
-      .text(0, -45, look.name, { fontFamily: font, fontSize: '6px', color: '#' + look.trim.toString(16).padStart(6, '0') })
-      .setOrigin(0.5)
-      .setResolution(textRes(4));
     this.fx = scene.add.container(0, HEAD_Y - 34);
 
     const im = this.im;
@@ -404,10 +392,36 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     const extra = name === 'face' ? '_' + this.expression : '';
     const key = 'rig_' + this.sig + '_' + this.view + '_' + name + extra;
     // toutes les pièces vont dans l'atlas partagé de la scène (quelques canvas au lieu de centaines)
-    const { atlas, frame } = bakeToAtlas(this.scene, key, g, b, this.res);
+    const { atlas, frame } = bakeToAtlas(this.scene, key, g, b, this.res, name === 'torso' ? (ctx, at, r) => this.drawJerseyText(ctx, at, r) : undefined);
     g.clear();
     img.setTexture(atlas, frame);
     img.setOrigin(-b[0] / (b[2] - b[0]), -b[1] / (b[3] - b[1]));
+  }
+
+  /** Numéro (devant et dos) et nom (dos) du chandail, dessinés dans la texture du torse. */
+  private drawJerseyText(ctx: CanvasRenderingContext2D, at: (lx: number, ly: number) => [number, number], r: number) {
+    const L = this.look;
+    const front = this.view === 'front';
+    if (front && L.catcherGear) return; // le plastron cache le numéro
+    const color = '#' + L.trim.toString(16).padStart(6, '0');
+    const font = '"Arial Black", "Segoe UI Black", Impact, sans-serif';
+    const write = (txt: string, lx: number, ly: number, size: number, stroke: number) => {
+      const [x, y] = at(lx, ly);
+      ctx.font = `900 ${size * r}px ${font}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = stroke * r;
+      ctx.strokeStyle = '#111111';
+      ctx.strokeText(txt, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(txt, x, y);
+    };
+    if (front) write(String(L.number), 0, -10, 12, 2.5);
+    else {
+      write(L.name, 0, -20, 6, 1.5);
+      write(String(L.number), 0, -8, 17, 3);
+    }
   }
 
   private bakeAll() {
@@ -422,19 +436,13 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     const parts: Phaser.GameObjects.GameObject[] = [];
     if (this.view === 'front') {
       if (im.tail) parts.push(im.tail);
-      parts.push(im.hairBack, im.legL, im.legR, im.torso, this.numText, this.head, im.armL, im.armR, im.bat, im.ballDot, this.fx);
+      parts.push(im.hairBack, im.legL, im.legR, im.torso, this.head, im.armL, im.armR, im.bat, im.ballDot, this.fx);
     } else {
-      parts.push(im.armL, im.armR, im.bat, im.legL, im.legR, im.torso, this.numText, this.nameText, this.head, im.hairBack);
+      parts.push(im.armL, im.armR, im.bat, im.legL, im.legR, im.torso, this.head, im.hairBack);
       if (im.tail) parts.push(im.tail);
       parts.push(im.ballDot, this.fx);
     }
     b.add(parts);
-    this.nameText.setVisible(this.view === 'back');
-    if (this.view === 'front') {
-      this.numText.setPosition(0, -35).setFontSize(12);
-    } else {
-      this.numText.setPosition(0, -33).setFontSize(17);
-    }
   }
 
   // ------------------------------------------------------------------ dessin
@@ -524,7 +532,6 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       t.lineBetween(-8 * w, -14, 8 * w, -14);
       t.lineBetween(-8 * w, -8, 8 * w, -8);
     }
-    this.numText.setVisible(!(L.catcherGear && front));
 
     // bras
     for (const [g, side] of [

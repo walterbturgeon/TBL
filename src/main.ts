@@ -9,6 +9,7 @@ import { GameScene } from './game/scenes/GameScene';
 import { HudScene } from './game/scenes/HudScene';
 import { ResultScene } from './game/scenes/ResultScene';
 import { Sound } from './game/audio/Sound';
+import { Stadium } from './game/audio/Stadium';
 import { Save } from './game/systems/Save';
 import { isTouch, isTVDevice } from './game/util/device';
 import { trace, traceLive, traceStart } from './game/util/trace';
@@ -36,6 +37,9 @@ const game = new Phaser.Game({
   fps: quality === 'normal' ? { target: 60 } : { target: 30, limit: 30 },
   scene: [BootScene, MenuScene, TeamSelectScene, PlayerSelectScene, OptionsScene, GameScene, HudScene, ResultScene],
 });
+
+// Sons du stade (orgue, foule) : chargés en ligne depuis Freesound et Wikimedia Commons.
+Stadium.init(Save.settings.stadiumSounds);
 
 // Le son démarre au premier geste de l'utilisateur (règle des navigateurs).
 const unlock = () => {
@@ -95,7 +99,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
-(window as unknown as { game: Phaser.Game }).game = game;
+(window as unknown as { game: Phaser.Game; stadium: typeof Stadium }).game = game;
+(window as unknown as { stadium: typeof Stadium }).stadium = Stadium;
 
 // chaque écran ouvert est noté dans le journal
 game.events.once('ready', () => {

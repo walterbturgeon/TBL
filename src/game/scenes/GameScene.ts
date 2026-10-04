@@ -24,6 +24,7 @@ import { aiSwing } from '../systems/AISystem';
 import { GameStats } from '../systems/Stats';
 import { Save } from '../systems/Save';
 import { Sound } from '../audio/Sound';
+import { Stadium } from '../audio/Stadium';
 import { Controls } from '../input/Controls';
 import { FieldRenderer } from '../world/FieldRenderer';
 import { BASES, MOUND, isFairPosition, project } from '../world/Projection';
@@ -148,6 +149,7 @@ export class GameScene extends Phaser.Scene {
   private inp = { swing: false, advance: false, retreat: false, pause: false, mute: false, base: 0 };
   private swingQueue: number[] = [];
   private holdT = 0;
+  private halves = 0; // demi-manches jouées (pour varier l'orgue)
   private pointerTap = false;
   private wantPause = false;
   private sprint = 0; // jauge de sprint (0 à 1)
@@ -230,14 +232,14 @@ export class GameScene extends Phaser.Scene {
       this.pointerTap = false;
     });
     this.events.once('shutdown', () => {
-      Sound.ambience(false);
+      Sound.gameAudio(false);
       this.input.keyboard!.removeAllListeners();
     });
 
     this.scene.launch('Hud');
     this.scene.bringToTop('Hud');
-    Sound.ambience(true);
-    Sound.startMusic();
+    Sound.gameAudio(true);
+    this.halves = 0;
     this.setPhase('intro', 0.25);
   }
 
@@ -412,6 +414,7 @@ export class GameScene extends Phaser.Scene {
       color: this.offense.human ? '#7fd3ff' : '#ffd23f',
     });
     Sound.play('crowd', 0.6);
+    Stadium.play(this.halves++ % 2 === 0 ? 'organWrigley' : 'gallop');
     this.setPhase('banner', PACE.bannerTime);
     this.resetForPitch();
   }
@@ -531,6 +534,7 @@ export class GameScene extends Phaser.Scene {
     const ps = this.pitcherStats(this.pitcher.def);
     this.plan = planPitch(ps, human ? this.diff.pitchSpeedMul : 1, human ? this.diff.aiStrikeChance : 0.64, human ? 0.04 : 0.1);
     const dogs = this.turcauDefends && this.catcher.def.kind === 'dog';
+    if (human && chance(0.22)) Stadium.play('claps', { rel: 0.8 });
     this.signConfused = dogs && chance(0.18);
     const dur = dogs ? PACE.signTime + (this.signConfused ? PACE.confusedExtra : 0) : 0.45;
     this.setPhase('sign', dur);
@@ -735,7 +739,7 @@ export class GameScene extends Phaser.Scene {
       this.catcher.rig.wag(1.5);
       this.time.delayedCall(250, () => Sound.play('bark'));
       this.field.cheer(0.35);
-      Sound.play('applause', 0.6);
+      if (!Stadium.play('cheer', { dur: 4 })) Sound.play('applause', 0.6);
     }
     if (this.batterRig) {
       const r = new Runner(this, bd, this.offense.cfg, 0, this.batterRig);
@@ -1218,7 +1222,7 @@ export class GameScene extends Phaser.Scene {
       if (f.def.kind === 'dog') f.rig.wag(1.2);
       if (this.outs >= 3) {
         this.field.cheer(0.4);
-        Sound.play('applause', 0.5);
+        if (!Stadium.play('cheer', { dur: 4 })) Sound.play('applause', 0.5);
       }
     }
     if (this.outs >= RULES.outsPerHalf) {
@@ -1396,6 +1400,7 @@ export class GameScene extends Phaser.Scene {
     if (this.ball.state !== 'homerun') {
       this.popup('+1 POINT !', O.human ? '#7dff7a' : '#ff9f43', 58);
       Sound.play('run');
+      if (O.human) Stadium.play('kidsCheer');
     }
     if (O.human) this.field.cheer(0.5);
     else if (this.turcauDefends) this.pitcher.rig.setExpression('sad');
@@ -1423,11 +1428,12 @@ export class GameScene extends Phaser.Scene {
     this.offense.hits++;
     this.batterRunner?.rig.play('celebrate', 1.5);
     this.popup('CIRCUIT !!!', '#ffd23f', 110, 'Appuie sur ESPACE (ou OK) pour accélérer');
-    Sound.play('homerun');
+    if (this.offense.human && Stadium.play('chargeLong')) Stadium.play('bigCheer');
+    else Sound.play('homerun');
     this.field.cheer(1);
     this.hud('hud-confetti', this.offense.human);
     this.cameras.main.shake(260, 0.006);
-    if (this.offense.human) this.time.delayedCall(1300, () => Sound.play('charge'));
+    if (this.offense.human && Stadium.failed('chargeLong')) this.time.delayedCall(1300, () => Sound.play('charge'));
     if (this.turcauDefends) {
       this.pitcher.rig.play('sad');
       this.pitcher.rig.setExpression('embarrassed');
@@ -1490,10 +1496,13 @@ export class GameScene extends Phaser.Scene {
         this.popup(labels[bases], '#ffd23f', bases === 4 ? 46 : 64);
         if (this.offense.human) {
           this.field.cheer(0.3 + bases * 0.15);
-          Sound.play('applause', 0.4 + bases * 0.15);
           br.rig.play('celebrate', 0.8);
+          // vraie fanfare d'orgue si elle est disponible, sinon les sons synthétisés
+          if (!Stadium.play(bases >= 2 ? 'chargeLong' : 'chargeShort')) {
+            Sound.play('applause', 0.4 + bases * 0.15);
+            if (bases >= 2) this.time.delayedCall(500, () => Sound.play('charge'));
+          }
         }
-        if (bases >= 2 && this.offense.human) this.time.delayedCall(500, () => Sound.play('charge'));
       } else if (bases >= 1) {
         this.popup('CHOIX DE LA DÉFENSIVE', '#ffffff', 40);
       }
@@ -1818,11 +1827,12 @@ export class GameScene extends Phaser.Scene {
     };
     this.popup('FIN DE LA PARTIE', '#ffffff', 72);
     if (result === 'win') {
-      Sound.play('cheer');
+      if (!Stadium.play('bigCheer')) Sound.play('cheer');
+      Stadium.play('organWrigley');
       this.field.cheer(1);
     }
     this.time.delayedCall(2200, () => {
-      Sound.ambience(false);
+      Sound.gameAudio(false);
       this.scene.stop('Hud');
       this.scene.start('Result', summary);
     });

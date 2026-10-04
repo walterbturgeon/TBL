@@ -382,7 +382,7 @@ export class FieldRenderer {
       });
     }
     const add = (p: P) => {
-      if (LOW && Math.random() < 0.5) return;
+      if (LOW && Math.random() < 0.7) return;
       const s = project(p.x, p.y);
       const sc = 0.75 * s.s + 0.2;
       const img = bakedImage(this.scene, 'fan_' + home.id + '_' + Math.floor(Math.random() * VARIANTS), B, 2, s.x, s.y);

@@ -4,6 +4,7 @@ import { PLAYERS } from '../config/players';
 import { BILLY, STELLA } from '../config/dogs';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
+import { Stadium } from '../audio/Stadium';
 import { Save } from '../systems/Save';
 import { button, cartoonText, onTvBack, panel, type MenuButton } from '../ui/ui';
 import { rand } from '../util/math';
@@ -107,7 +108,7 @@ export class ResultScene extends Phaser.Scene {
     });
 
     if (win) {
-      Sound.play('homerun');
+      if (!Stadium.play('chargeLong')) Sound.play('homerun');
       this.confetti();
     } else Sound.play('applause', 0.5);
   }

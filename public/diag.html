@@ -84,7 +84,6 @@
         else {
           fpsCell.textContent = Math.round((frames * 1000) / (t - t0));
           fpsCell.className = 'ok';
-          stress();
         }
       }
       requestAnimationFrame(tick);
@@ -93,6 +92,15 @@
       var KEY = 'turcau-bbl.diag-canvas';
       var prev = localStorage.getItem(KEY);
       if (prev && prev.indexOf('fini') < 0) row('Test canvas PRÉCÉDENT', 'arrêté à ' + prev + ' canvas (plantage probable)', 'bad');
+      // bouton : le test de charge peut bloquer un appareil faible, il ne démarre donc pas tout seul
+      var btn = document.createElement('button');
+      btn.textContent = 'Test de charge (peut bloquer la télé)';
+      btn.style.cssText = 'font-size:22px;padding:10px 18px;margin:14px 0;border-radius:10px;border:3px solid #111;background:#ffd23f;';
+      btn.onclick = function () {
+        btn.disabled = true;
+        stress();
+      };
+      out.appendChild(btn);
       function stress() {
         var cell = row('Test : 600 petits canvas', 'en cours…', 'warn');
         var keep = [];

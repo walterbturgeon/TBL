@@ -84,7 +84,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => this.onKey(e));
     this.input.on('pointerdown', () => this.unlockAudio());
-    if (Sound.ctx) Sound.startMusic();
+    if (Sound.ctx) Sound.menuMusic();
   }
 
   private addRig(def: Parameters<typeof lookFor>[0], x: number, y: number, scale: number, catcher: boolean) {
@@ -101,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
     Sound.unlock();
     const s = Save.settings;
     Sound.setVolumes(s.musicVolume, s.sfxVolume, s.muted);
-    Sound.startMusic();
+    Sound.menuMusic();
   }
 
   private select(i: number) {

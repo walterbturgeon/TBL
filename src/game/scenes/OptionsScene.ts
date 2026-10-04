@@ -3,6 +3,8 @@ import { DIFFICULTY, type Difficulty } from '../config/gameConfig';
 import { Sound } from '../audio/Sound';
 import { Save, type Quality } from '../systems/Save';
 import { QUALITY_LABEL } from '../util/quality';
+import { Stadium } from '../audio/Stadium';
+import { STADIUM_CLIPS } from '../config/sounds';
 import { cartoonText, onTvBack, panel, toggleFullscreen } from '../ui/ui';
 
 interface Item {
@@ -89,6 +91,23 @@ export class OptionsScene extends Phaser.Scene {
           });
         },
       },
+      {
+        label: () => `SONS DU STADE (orgue, foule)   ${st().stadiumSounds ? 'OUI' : 'NON'}`,
+        act: () => {
+          const on = !st().stadiumSounds;
+          Save.updateSettings({ stadiumSounds: on });
+          if (on) {
+            Stadium.init(true);
+            Stadium.enabled = true;
+            Sound.menuMusic();
+          } else {
+            Stadium.stopAll(0.3);
+            Stadium.enabled = false;
+            Sound.startMusic();
+          }
+        },
+      },
+      { label: () => 'CRÉDITS DES SONS', act: () => this.showCredits() },
       { label: () => 'COMMANDES', act: () => this.showControls() },
       { label: () => 'DIAGNOSTIC (si le jeu plante)', act: () => (location.href = './diag.html') },
       {
@@ -103,8 +122,11 @@ export class OptionsScene extends Phaser.Scene {
       },
       { label: () => 'RETOUR', act: () => this.back() },
     ];
+    // la liste tient dans le panneau, même avec beaucoup d'options
+    const rowH = Math.min(72, 700 / Math.max(1, this.items.length - 1));
+    const size = rowH < 62 ? 28 : 34;
     this.texts = this.items.map((it, i) => {
-      const t = cartoonText(this, 960, 250 + i * 72, it.label(), 34, '#ffffff').setOrigin(0.5);
+      const t = cartoonText(this, 960, 228 + i * rowH, it.label(), size, '#ffffff').setOrigin(0.5);
       t.setInteractive({ useHandCursor: true });
       t.on('pointerover', () => this.select(i));
       t.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -182,6 +204,25 @@ export class OptionsScene extends Phaser.Scene {
     c.add(cartoonText(this, 960, 740, 'La défenseure court seule vers la balle et lance seule si tu attends.', 24, '#7dff7a').setOrigin(0.5));
     c.add(cartoonText(this, 960, 800, 'Avec un curseur ou un écran tactile : clique n’importe où pour frapper.', 22, '#c9d4ff').setOrigin(0.5));
     c.add(cartoonText(this, 960, 890, 'Appuie sur une touche pour fermer', 20, '#c9d4ff').setOrigin(0.5));
+    const z = this.add.zone(960, 540, 1920, 1080).setInteractive();
+    z.on('pointerdown', () => {
+      c.destroy();
+      this.controlsPanel = null;
+    });
+    c.add(z);
+    this.controlsPanel = c;
+  }
+
+  private showCredits() {
+    const c = this.add.container(0, 0);
+    c.add(this.add.rectangle(960, 540, 1920, 1080, 0x000000, 0.6));
+    c.add(panel(this, 260, 110, 1400, 860, 0x1b2a6b, 1));
+    c.add(cartoonText(this, 960, 170, 'CRÉDITS DES SONS', 50, '#ffd23f').setOrigin(0.5));
+    c.add(cartoonText(this, 960, 225, 'Sons libres de droit : Freesound (CC0) et Wikimedia Commons (domaine public)', 22, '#c9d4ff').setOrigin(0.5));
+    Object.values(STADIUM_CLIPS).forEach((clip, i) => {
+      c.add(cartoonText(this, 320, 290 + i * 56, '• ' + clip.credit, 24, '#ffffff').setOrigin(0, 0.5));
+    });
+    c.add(cartoonText(this, 960, 920, 'Appuie sur une touche pour fermer', 20, '#c9d4ff').setOrigin(0.5));
     const z = this.add.zone(960, 540, 1920, 1080).setInteractive();
     z.on('pointerdown', () => {
       c.destroy();

@@ -1,3 +1,5 @@
+import { Stadium } from './Stadium';
+
 /**
  * Sons synthétisés avec Web Audio : aucun fichier à télécharger, donc le jeu marche hors ligne.
  * Chaque son a une petite variation aléatoire pour ne pas devenir répétitif.
@@ -47,6 +49,7 @@ class SoundEngine {
 
   /** À appeler lors d'un geste de l'utilisateur (clavier, souris). */
   unlock() {
+    if (!this.ctx) Stadium.unlock();
     if (!this.ctx) {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AC) return;
@@ -69,6 +72,34 @@ class SoundEngine {
   setVolumes(music: number, sfx: number, muted: boolean) {
     this.vol = { music, sfx, muted };
     this.applyVolumes();
+    Stadium.setVolumes(music, sfx, muted);
+  }
+
+  /** Musique des menus : la chanson de 1908 si elle charge, sinon la musique synthétisée. */
+  menuMusic() {
+    if (Stadium.loop('menuSong', () => this.startMusic())) this.stopMusic();
+    else this.startMusic();
+  }
+
+  /** Sons pendant une partie : ambiance de vraie foule (sinon foule et musique synthétisées). */
+  gameAudio(on: boolean) {
+    if (on) {
+      Stadium.stop('menuSong', 1);
+      const real = Stadium.loop('ambience', () => {
+        this.ambience(true);
+        this.startMusic();
+      });
+      if (real) {
+        this.stopMusic();
+        this.ambience(false);
+      } else {
+        this.ambience(true);
+        this.startMusic();
+      }
+    } else {
+      Stadium.stop('ambience', 0.8);
+      this.ambience(false);
+    }
   }
 
   private applyVolumes() {

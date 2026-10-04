@@ -361,7 +361,7 @@ export class HudScene extends Phaser.Scene {
         label: () => 'MENU PRINCIPAL',
         act: () => {
           this.closePause(false);
-          Sound.ambience(false);
+          Sound.gameAudio(false);
           this.scene.stop('Game');
           this.scene.start('Menu');
         },
