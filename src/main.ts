@@ -12,6 +12,7 @@ import { Sound } from './game/audio/Sound';
 import { Stadium } from './game/audio/Stadium';
 import { Save } from './game/systems/Save';
 import { isTouch, isTVDevice } from './game/util/device';
+import { goFullscreen, initInstall, isStandalone } from './game/util/install';
 import { trace, traceLive, traceStart } from './game/util/trace';
 
 traceStart();
@@ -68,22 +69,10 @@ if (isTV) {
   });
 }
 
-// Téléphone : au premier toucher, plein écran et écran bloqué à l'horizontale (Android ; iPhone l'ignore).
-if (isTouch()) {
-  const goFull = () => {
-    window.removeEventListener('pointerup', goFull);
-    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
-    try {
-      const p = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen?.();
-      Promise.resolve(p)
-        .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape'))
-        .catch(() => undefined);
-    } catch {
-      /* pas de plein écran sur cet appareil : le jeu marche quand même */
-    }
-  };
-  window.addEventListener('pointerup', goFull);
-}
+// Téléphone dans le navigateur : chaque toucher remet le plein écran s'il n'est pas actif
+// (Android ; l'iPhone n'a pas de plein écran dans Safari, il faut installer le jeu).
+initInstall();
+if (isTouch() && !isStandalone()) window.addEventListener('pointerup', goFullscreen);
 
 // La barre d'espace et les flèches ne doivent pas faire défiler la page.
 window.addEventListener('keydown', (e) => {

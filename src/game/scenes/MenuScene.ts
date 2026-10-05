@@ -9,6 +9,8 @@ import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
 import { button, cartoonText, toggleFullscreen, type MenuButton } from '../ui/ui';
 import { pick, rand } from '../util/math';
+import { canInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../util/install';
+import { isTouch } from '../util/device';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -82,9 +84,34 @@ export class MenuScene extends Phaser.Scene {
     const help = cartoonText(this, 960, 450, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
     this.tweens.add({ targets: help, alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
 
+    this.addInstallButton();
+
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => this.onKey(e));
     this.input.on('pointerdown', () => this.unlockAudio());
     if (Sound.ctx) Sound.menuMusic();
+  }
+
+  /** Bouton INSTALLER (Android) ou explication (iPhone) : le jeu installé s'ouvre en plein écran. */
+  private addInstallButton() {
+    if (isStandalone()) return;
+    let btn: ReturnType<typeof button> | null = null;
+    const refresh = () => {
+      btn?.c.destroy();
+      btn = null;
+      if (!canInstall()) return;
+      btn = button(this, 1700, 70, 'INSTALLER LE JEU', 380, 70, () => {
+        void promptInstall();
+      });
+    };
+    refresh();
+    const off = onInstallChange(() => {
+      if (this.scene.isActive()) refresh();
+    });
+    this.events.once('shutdown', off);
+    if (isIOS() && isTouch()) {
+      cartoonText(this, 1890, 40, 'Plein écran sur iPhone :', 20, '#ffd23f').setOrigin(1, 0.5);
+      cartoonText(this, 1890, 70, 'Partager  ⬆  puis « Sur l’écran d’accueil »', 20, '#ffffff').setOrigin(1, 0.5);
+    }
   }
 
   private addRig(def: Parameters<typeof lookFor>[0], x: number, y: number, scale: number, catcher: boolean) {
