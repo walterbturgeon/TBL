@@ -836,8 +836,6 @@ export class GameScene extends Phaser.Scene {
     const bd = this.batterDef!;
     this.playBatter = bd;
     this.stats.line(bd).ab++;
-    // phrase de bande dessinée propre à la frappeuse (ex. Maryse : « Houle ma poule ! »)
-    if (bd.kind === 'girl' && bd.hitPhrase) this.hud('hud-comic', { text: bd.hitPhrase });
     const rig = this.batterRig!;
     this.batterRig = null;
     this.dropBat(rig);
@@ -968,14 +966,13 @@ export class GameScene extends Phaser.Scene {
       if (this.ignoreCatch.t <= 0) this.ignoreCatch = null;
     }
 
-    // frappe plus loin que la moitié du champ : effet de bande dessinée « GROSSE TORCHE ! »
-    // (pas de doublon si la phrase de la frappeuse est déjà « grosse torche »)
+    // longue frappe (plus loin que la moitié du champ) : la phrase de BD de la frappeuse, si elle en a une
     const pb = this.playBatter;
-    const samePhrase = pb?.kind === 'girl' && (pb.hitPhrase ?? '').toLowerCase().replace(/[^a-z]/g, '') === 'grossetorche';
-    if (!this.torcheShown && !samePhrase && (b.state === 'batted' || b.state === 'homerun') && this.fair !== 'foul') {
+    const phrase = pb?.kind === 'girl' ? pb.hitPhrase : undefined;
+    if (phrase && !this.torcheShown && (b.state === 'batted' || b.state === 'homerun') && this.fair !== 'foul') {
       if (Math.hypot(b.sim.x, b.sim.y) > FIELD.fenceRadius * 0.5 && isFairPosition(b.sim.x, b.sim.y)) {
         this.torcheShown = true;
-        this.hud('hud-torche');
+        this.hud('hud-comic', { text: phrase });
         Sound.play('crowd', 0.9);
         Sound.play('whoosh');
       }

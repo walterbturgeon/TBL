@@ -37,7 +37,7 @@ export interface PlayerConfig {
   defense: number;
   throwing?: number; // si absent : calculé à partir de la défensive
   bats: 'R' | 'L';
-  hitPhrase?: string; // phrase de bande dessinée quand la joueuse frappe la balle
+  hitPhrase?: string; // phrase de bande dessinée quand la personne frappe loin (plus de la moitié du champ)
   expression: Expression; // expression du portrait
   personality: string; // texte court pour le menu
   uniformColor?: string; // remplace la couleur de l'équipe pour cette joueuse

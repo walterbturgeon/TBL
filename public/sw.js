@@ -3,7 +3,7 @@
  * - autres fichiers (JS, icônes) : cache d'abord, réseau ensuite.
  * Après une première ouverture, le jeu fonctionne hors connexion.
  */
-const CACHE = 'turcau-bbl-v9';
+const CACHE = 'turcau-bbl-v10';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

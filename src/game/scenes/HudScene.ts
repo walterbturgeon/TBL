@@ -97,7 +97,6 @@ export class HudScene extends Phaser.Scene {
     on('hud-banner', (b: { title: string; sub: string; color: string }) => this.banner(b));
     on('hud-timing', (p: { text: string; color: string }) => this.timing(p));
     on('hud-confetti', (big: boolean) => this.confetti(big ? 160 : 70));
-    on('hud-torche', () => this.comic('GROSSE', 'TORCHE !', 0xe3262e, 0xffd23f, '#e3262e'));
     on('hud-comic', (p: { text: string }) => {
       // la phrase est coupée en deux lignes : le dernier mot (avec sa ponctuation) en gros
       const tokens: string[] = [];
@@ -106,7 +105,7 @@ export class HudScene extends Phaser.Scene {
         else tokens.push(w);
       }
       const bottom = tokens.pop() ?? '';
-      this.comic(tokens.join(' '), bottom, 0xff5fa2, 0x7fd3ff, '#2d6cdf');
+      this.comic(tokens.join(' '), bottom, 0xe3262e, 0xffd23f, '#e3262e');
     });
     on('hud-pause', () => this.openPause());
     this.events.once('shutdown', () => {
