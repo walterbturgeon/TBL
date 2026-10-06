@@ -30,6 +30,9 @@ export class OptionsScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(250, 15, 26, 61);
+    this.controlsPanel = null;
+    this.confirmReset = false;
+    this.reloadTimer = null;
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
     panel(this, 460, 70, 1000, 940, 0x0f1a3d, 0.95);
     cartoonText(this, 960, 140, 'OPTIONS', 70, '#ffd23f').setOrigin(0.5);

@@ -45,12 +45,20 @@ export class HudScene extends Phaser.Scene {
   private pauseItems: { label: () => string; act: (dir: number) => void }[] = [];
   private pauseTexts: Phaser.GameObjects.Text[] = [];
   private handlers: [string, (...a: never[]) => void][] = [];
+  private comicBusyUntil = 0; // une seule bulle de BD à la fois
   private sprintBtn: Phaser.GameObjects.Container | null = null;
   private popups: Phaser.GameObjects.Text[] = [];
   private bannerUntil = 0;
   private touch = false;
 
   create() {
+    // la scène est réutilisée d'une partie à l'autre : on repart à zéro
+    this.pause = null;
+    this.popups = [];
+    this.bannerUntil = 0;
+    this.sprintBtn = null;
+    this.handlers = [];
+    this.comicBusyUntil = 0;
     // panneau du pointage
     panel(this, 22, 20, 470, 206);
     panel(this, 1920 - 22 - 400, 20, 400, 128);
@@ -89,6 +97,17 @@ export class HudScene extends Phaser.Scene {
     on('hud-banner', (b: { title: string; sub: string; color: string }) => this.banner(b));
     on('hud-timing', (p: { text: string; color: string }) => this.timing(p));
     on('hud-confetti', (big: boolean) => this.confetti(big ? 160 : 70));
+    on('hud-torche', () => this.comic('GROSSE', 'TORCHE !', 0xe3262e, 0xffd23f, '#e3262e'));
+    on('hud-comic', (p: { text: string }) => {
+      // la phrase est coupée en deux lignes : le dernier mot (avec sa ponctuation) en gros
+      const tokens: string[] = [];
+      for (const w of p.text.toUpperCase().split(' ').filter(Boolean)) {
+        if (/^[!?.]+$/.test(w) && tokens.length) tokens[tokens.length - 1] += ' ' + w;
+        else tokens.push(w);
+      }
+      const bottom = tokens.pop() ?? '';
+      this.comic(tokens.join(' '), bottom, 0xff5fa2, 0x7fd3ff, '#2d6cdf');
+    });
     on('hud-pause', () => this.openPause());
     this.events.once('shutdown', () => {
       for (const [ev, fn] of this.handlers) this.game.events.off(ev, fn, this);
@@ -269,6 +288,88 @@ export class HudScene extends Phaser.Scene {
       const st = cartoonText(this, 960, y + p.size * 0.75, p.sub, 24, '#ffffff').setOrigin(0.5).setDepth(50);
       this.tweens.add({ targets: st, alpha: 0, delay: 1600, duration: 400, onComplete: () => st.destroy() });
     }
+  }
+
+  /** Effet de bande dessinée : éclat d'explosion, trame de points et deux lignes de texte. */
+  private comic(top: string, bottom: string, outerColor: number, innerColor: number, shadowColor: string) {
+    // si une autre bulle est encore à l'écran, celle-ci attend son tour
+    const wait = this.comicBusyUntil - this.time.now;
+    if (wait > 0) {
+      this.comicBusyUntil += 1700;
+      this.time.delayedCall(wait, () => this.drawComic(top, bottom, outerColor, innerColor, shadowColor));
+      return;
+    }
+    this.comicBusyUntil = this.time.now + 1700;
+    this.drawComic(top, bottom, outerColor, innerColor, shadowColor);
+  }
+
+  private drawComic(top: string, bottom: string, outerColor: number, innerColor: number, shadowColor: string) {
+    const c = this.add.container(960, 235).setDepth(55);
+    const g = this.add.graphics();
+    const star = (rx: number, ry: number, inner: number, spikes: number, seed: number) => {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < spikes * 2; i++) {
+        const a = (i / (spikes * 2)) * Math.PI * 2 + Math.sin(i * 7.3 + seed) * 0.05;
+        const k = i % 2 === 0 ? 1 + Math.sin(i * 3.1 + seed) * 0.12 : inner;
+        pts.push({ x: Math.cos(a) * rx * k, y: Math.sin(a) * ry * k });
+      }
+      return pts;
+    };
+    // traits de vitesse autour de l'éclat
+    g.lineStyle(6, 0x111111, 0.85);
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2 + 0.07;
+      const r0 = 1.05 + (i % 3) * 0.06;
+      g.lineBetween(Math.cos(a) * 300 * r0, Math.sin(a) * 150 * r0, Math.cos(a) * 360 * r0, Math.sin(a) * 180 * r0);
+    }
+    // ombre, éclat rouge, éclat jaune
+    const outer = star(290, 140, 0.72, 15, 1);
+    g.fillStyle(0x000000, 0.45);
+    g.fillPoints(outer.map((p) => ({ x: p.x + 10, y: p.y + 12 })), true);
+    g.fillStyle(outerColor, 1);
+    g.fillPoints(outer, true);
+    g.lineStyle(9, 0x111111, 1);
+    g.strokePoints(outer, true, true);
+    const innerStar = star(225, 108, 0.78, 13, 4);
+    g.fillStyle(innerColor, 1);
+    g.fillPoints(innerStar, true);
+    g.lineStyle(5, 0x111111, 1);
+    g.strokePoints(innerStar, true, true);
+    // trame de points (style imprimé de bande dessinée)
+    g.fillStyle(0xffffff, 0.45);
+    for (let y = -84; y <= 84; y += 14) {
+      for (let x = -180; x <= 180; x += 14) {
+        const off = (y / 14) % 2 === 0 ? 0 : 7;
+        const px = x + off;
+        if ((px * px) / (170 * 170) + (y * y) / (80 * 80) > 1) continue;
+        g.fillCircle(px, y, 2.6);
+      }
+    }
+    c.add(g);
+    const t1 = cartoonText(this, -10, -40, top, 64, '#ffffff').setOrigin(0.5);
+    const t2 = cartoonText(this, 10, 32, bottom, 96, '#ffffff').setOrigin(0.5);
+    for (const t of [t1, t2]) {
+      t.setFontStyle('italic');
+      t.setStroke('#111111', 16);
+      t.setShadow(6, 7, shadowColor, 0, true, false);
+      if (t.width > 520) t.setScale(520 / t.width);
+    }
+    t2.setColor('#ffffff');
+    c.add([t1, t2]);
+    c.setRotation(-0.1);
+    c.setScale(0.1);
+    this.tweens.add({ targets: c, scale: 1.12, duration: 220, ease: 'Back.Out' });
+    this.tweens.add({ targets: c, scale: 1, delay: 220, duration: 160, ease: 'Sine.Out' });
+    this.tweens.add({ targets: c, rotation: -0.04, duration: 90, yoyo: true, repeat: 5, delay: 240 });
+    this.tweens.add({
+      targets: c,
+      scale: 1.35,
+      alpha: 0,
+      delay: 1500,
+      duration: 260,
+      ease: 'Quad.In',
+      onComplete: () => c.destroy(),
+    });
   }
 
   private timing(p: { text: string; color: string }) {

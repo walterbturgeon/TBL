@@ -36,11 +36,17 @@ npm run dev
 
 Ouvre ensuite http://localhost:5173.
 
+## Avant la partie
+
+1. Choisis ton équipe (n'importe laquelle), puis regarde ses joueurs.
+2. Choisis l'équipe adverse, puis regarde ses joueurs.
+3. AU JEU !
+
 ## Changer les personnages
 
 - Joueuses : `src/game/config/players.ts`
 - Billy et Stella : `src/game/config/dogs.ts`
-- Équipes, positions, rotation, ordre au bâton, équipes adverses : `src/game/config/teams.ts`
+- Équipes, positions, rotation, ordre au bâton, phrases de bande dessinée (`hitPhrase`) : `src/game/config/teams.ts`
 - Règles, difficulté, vitesses : `src/game/config/gameConfig.ts`
 
 ## Publier sur GitHub Pages

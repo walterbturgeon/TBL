@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TURCAU, stat, type CharacterDef } from '../config/teams';
+import { rosterOf, stat, teamById } from '../config/teams';
 import { PLAYERS } from '../config/players';
 import { BILLY, STELLA } from '../config/dogs';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
@@ -56,15 +56,16 @@ export class ResultScene extends Phaser.Scene {
     // meilleur personnage
     panel(this, 360, 465, 640, 440);
     cartoonText(this, 680, 505, 'MEILLEUR PERSONNAGE', 30, '#ffd23f').setOrigin(0.5);
-    const all: CharacterDef[] = [...PLAYERS, BILLY, STELLA];
-    const mvp = all.find((c) => c.id === s.mvpId);
+    const team = teamById(s.homeId);
+    const mvp = rosterOf(team).find((c) => c.id === s.mvpId);
     if (mvp) {
-      const r = new CartoonRig(this, lookFor(mvp, TURCAU, { detail: true, catcherGear: mvp.id === 'stella' }));
+      const isCatcher = team.defense.C.id === mvp.id;
+      const r = new CartoonRig(this, lookFor(mvp, team, { detail: true, catcherGear: isCatcher }));
       this.add.existing(r);
       r.baseScale = 2.4 * (stat.height(mvp) / 66);
       r.setPosition(520, 850);
       r.applyScale(1);
-      if (mvp.id === 'stella') r.showMask(false);
+      if (isCatcher) r.showMask(false);
       r.setExpression('happy');
       this.rig = r;
       cartoonText(this, 660, 600, stat.shortName(mvp), 44, '#ffffff').setOrigin(0, 0.5);
@@ -77,7 +78,8 @@ export class ResultScene extends Phaser.Scene {
 
     // statistiques d'équipe
     panel(this, 1040, 465, 520, 440);
-    cartoonText(this, 1300, 505, TURCAU.name.toUpperCase(), 30, '#ffd23f').setOrigin(0.5);
+    const tn = cartoonText(this, 1300, 505, team.name.toUpperCase(), 30, '#ffd23f').setOrigin(0.5);
+    if (tn.width > 480) tn.setScale(480 / tn.width);
     const lines: [string, number][] = [
       ['Coups sûrs', s.hits],
       ['Circuits', s.homeRuns],

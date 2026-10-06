@@ -236,11 +236,82 @@ export const ECUREUILS: TeamConfig = {
   lineup: [ECU.b2, ECU.ss, ECU.b1, ECU.b3, ECU.cf, ECU.lf, ECU.rf, ECU.c, ECU.p],
 };
 
+// ---------------- L'ITAQ ----------------
+// Émilie, Maryse et Renaud : fournis par l'utilisateur (cheveux et grandeur).
+// Les coiffures non précisées, les yeux, les statistiques, les numéros et les couleurs sont des propositions.
+// Les 6 autres personnes sont inventées pour compléter l'équipe.
+const ITQ = {
+  emilie: rival('itaq_emilie', 'Émilie Cauchy', 3, '#f2cf5b', 'curly', 6, 6, 7, 66, { eyeColor: '#5aa6e0' }),
+  maryse: rival('itaq_maryse', 'Maryse', 7, '#5a3418', 'ponytail', 5, 7, 6, 64, { eyeColor: '#6b4423', hitPhrase: 'Houle ma poule !' }),
+  renaud: rival('itaq_renaud', 'Renaud Masawipi', 12, '#141414', 'short', 7, 6, 6, 67, { eyeColor: '#6b4423' }),
+  // personnes inventées
+  laurie: rival('itaq_laurie', 'Laurie', 4, '#8a5530', 'braid', 5, 7, 6, 63),
+  felix: rival('itaq_felix', 'Félix', 9, '#3b2210', 'curlyShort', 6, 6, 6, 69),
+  annabelle: rival('itaq_annabelle', 'Annabelle', 15, '#e8c45a', 'bun', 5, 6, 7, 65),
+  xavier: rival('itaq_xavier', 'Xavier', 21, '#6b3e1f', 'short', 7, 5, 6, 70),
+  coralie: rival('itaq_coralie', 'Coralie', 8, '#c0602a', 'wavy', 5, 7, 6, 64),
+  olivier: rival('itaq_olivier', 'Olivier', 18, '#2b1a10', 'short', 6, 6, 5, 68),
+};
+
+export const ITAQ: TeamConfig = {
+  id: 'itaq',
+  name: 'L’ITAQ',
+  short: 'ITAQ',
+  logoLetter: 'I',
+  colors: {
+    primary: '#5b2a86', // violet
+    secondary: '#f2c14e', // or
+    pants: '#f3f0e6',
+    socks: '#5b2a86',
+    cap: '#5b2a86',
+    capLogo: '#f2c14e',
+  },
+  defense: {
+    P: ITQ.renaud,
+    C: ITQ.maryse,
+    '1B': ITQ.xavier,
+    '2B': ITQ.laurie,
+    SS: ITQ.emilie,
+    '3B': ITQ.felix,
+    LF: ITQ.annabelle,
+    CF: ITQ.coralie,
+    RF: ITQ.olivier,
+  },
+  lineup: [ITQ.emilie, ITQ.laurie, ITQ.renaud, ITQ.xavier, ITQ.maryse, ITQ.felix, ITQ.coralie, ITQ.annabelle, ITQ.olivier],
+};
+
 /** Équipes adverses offertes au joueur (menu JOUER). */
-export const OPPONENTS: TeamConfig[] = [VISITORS, OD2026, ECUREUILS];
+export const OPPONENTS: TeamConfig[] = [VISITORS, OD2026, ECUREUILS, ITAQ];
 
 export function opponentById(id: string): TeamConfig {
   return OPPONENTS.find((t) => t.id === id) ?? VISITORS;
+}
+
+/** Toutes les équipes : n'importe laquelle peut être « ton équipe » ou l'adversaire. */
+export const ALL_TEAMS: TeamConfig[] = [TURCAU, ...OPPONENTS];
+
+export function teamById(id: string): TeamConfig {
+  return ALL_TEAMS.find((t) => t.id === id) ?? TURCAU;
+}
+
+/** Tous les personnages d'une équipe, sans doublon : l'ordre au bâton, puis les autres. */
+export function rosterOf(t: TeamConfig): CharacterDef[] {
+  const out: CharacterDef[] = [];
+  const add = (c: CharacterDef | undefined) => {
+    if (c && !out.some((x) => x.id === c.id)) out.push(c);
+  };
+  t.lineup.forEach(add);
+  (Object.keys(t.defense) as Position[]).forEach((p) => add(t.defense[p]));
+  for (const r of t.rotation ?? []) (Object.keys(r) as Position[]).forEach((p) => add(r[p]));
+  return out;
+}
+
+/** Position(s) défensive(s) d'un personnage, rotation comprise. */
+export function positionsOf(t: TeamConfig, c: CharacterDef): string {
+  const out = new Set<string>();
+  for (const p of Object.keys(t.defense) as Position[]) if (t.defense[p].id === c.id) out.add(POSITION_LABEL[p]);
+  for (const r of t.rotation ?? []) for (const p of Object.keys(r) as Position[]) if (r[p]?.id === c.id) out.add(POSITION_LABEL[p]);
+  return out.size ? [...out].join(' · ') : 'Au bâton';
 }
 
 // ---------------- Accès aux statistiques communes ----------------

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CONTROLS, DIFFICULTY, FIELD, PACE, PHYSICS, RULES, TIMING_AI, VIEW, type DifficultySettings } from '../config/gameConfig';
-import { TURCAU, opponentById, stat, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
+import { ALL_TEAMS, rosterOf, stat, teamById, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
 import { Ball, pitchPos, stepBall } from '../entities/Ball';
 import { Fielder } from '../entities/Fielder';
 import { Runner } from '../entities/Runner';
@@ -49,6 +49,7 @@ interface TeamRT {
 export interface GameSummary {
   home: number;
   away: number;
+  homeId: string;
   homeName: string;
   awayName: string;
   result: 'win' | 'loss' | 'tie';
@@ -150,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   private swingQueue: number[] = [];
   private holdT = 0;
   private halves = 0; // demi-manches jouées (pour varier l'orgue)
+  private torcheShown = false; // « GROSSE TORCHE ! » déjà montré pour cette frappe
   private pointerTap = false;
   private wantPause = false;
   private sprint = 0; // jauge de sprint (0 à 1)
@@ -175,9 +177,35 @@ export class GameScene extends Phaser.Scene {
     this.gameOverQueued = false;
     this.gameTime = 0;
     this.cam = { zoom: 1, x: 960, y: 540 };
+    // Phaser garde la même scène d'une partie à l'autre (REJOUER, RECOMMENCER) :
+    // on oublie tout objet de la partie précédente, qui est maintenant détruit.
+    this.baseLabels = [];
+    this.retAnim = null;
+    this.batterRig = null;
+    this.batterDef = null;
+    this.playBatter = null;
+    this.batterRunner = null;
+    this.holder = null;
+    this.controlled = null;
+    this.chaser = null;
+    this.throwInfo = null;
+    this.ignoreCatch = null;
+    this.plan = null;
+    this.samples = [];
+    this.runsThisPlay = [];
+    this.swingQueue = [];
+    this.hudCache = '';
+    this.torcheShown = false;
+    this.sprint = 0;
+    this.pitchBonus = null;
+    this.pointerTap = false;
+    this.wantPause = false;
 
-    const opp = opponentById(s.opponent);
-    this.field = new FieldRenderer(this, TURCAU, opp);
+    // ton équipe (à domicile) et l'équipe adverse, choisies avant la partie
+    const mine = teamById(s.myTeam);
+    let opp = teamById(s.opponent);
+    if (opp.id === mine.id) opp = ALL_TEAMS.find((t) => t.id !== mine.id)!;
+    this.field = new FieldRenderer(this, mine, opp);
     this.overlay = this.add.graphics().setDepth(-500);
     this.meter = this.add.graphics().setDepth(2600);
     this.meterText = this.add
@@ -198,7 +226,7 @@ export class GameScene extends Phaser.Scene {
       this.baseLabels.push(t);
     }
 
-    this.home = this.makeTeam(TURCAU, true);
+    this.home = this.makeTeam(mine, true);
     this.away = this.makeTeam(opp, false);
     this.ball = new Ball(this);
     this.controls = new Controls(this);
@@ -277,8 +305,13 @@ export class GameScene extends Phaser.Scene {
   private get catcher() {
     return this.fielder('C');
   }
+  /** L'équipe du joueur est en défensive. */
   private get turcauDefends() {
     return this.defense.human;
+  }
+  /** Billy et Stella (ou d'autres chiens) sont au monticule et au marbre. */
+  private get dogsDefend() {
+    return this.catcher.def.kind === 'dog';
   }
 
   private setPhase(p: Phase, dur = 0) {
@@ -533,7 +566,7 @@ export class GameScene extends Phaser.Scene {
     const human = this.offense.human;
     const ps = this.pitcherStats(this.pitcher.def);
     this.plan = planPitch(ps, human ? this.diff.pitchSpeedMul : 1, human ? this.diff.aiStrikeChance : 0.64, human ? 0.04 : 0.1);
-    const dogs = this.turcauDefends && this.catcher.def.kind === 'dog';
+    const dogs = this.dogsDefend;
     if (human && chance(0.22)) Stadium.play('claps', { rel: 0.8 });
     this.signConfused = dogs && chance(0.18);
     const dur = dogs ? PACE.signTime + (this.signConfused ? PACE.confusedExtra : 0) : 0.45;
@@ -545,7 +578,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateSign() {
-    const dogs = this.turcauDefends && this.catcher.def.kind === 'dog';
+    const dogs = this.dogsDefend;
     if (dogs) {
       const P = this.pitcher.rig;
       if (this.signStep === 0 && this.phaseT > 0.22) {
@@ -578,7 +611,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Jauge de lancer : OK dans le vert = super lancer de Billy. */
   private updateAim() {
-    const period = 1.0;
+    const period = 1.25; // aiguille 20 % plus lente (plus facile d'avoir un super lancer)
     const u = (this.phaseT / period) % 1;
     this.meterPos = u < 0.5 ? u * 2 : 2 - u * 2;
     const pressed = this.inp.swing || this.swingQueue.length > 0;
@@ -682,7 +715,7 @@ export class GameScene extends Phaser.Scene {
     C.rig.play(plan.type === 'fastball' ? 'flinch' : 'catch');
     Sound.play('glove');
     const strike = this.swingMiss || plan.strike;
-    const dogs = this.turcauDefends && C.def.kind === 'dog';
+    const dogs = C.def.kind === 'dog';
     let wagOnReturn = false;
     this.deadNext = 'pitch';
 
@@ -770,7 +803,7 @@ export class GameScene extends Phaser.Scene {
     for (const r of this.runners) if (r.forcedTo !== null) r.target = r.forcedTo;
     this.runsThisPlay = [];
     this.deadNext = 'batter';
-    if (this.turcauDefends && this.catcher.def.kind === 'dog') {
+    if (this.dogsDefend) {
       this.catcher.rig.play('shakeHead');
       this.pitcher.rig.setExpression('embarrassed');
     }
@@ -796,12 +829,15 @@ export class GameScene extends Phaser.Scene {
     b.sim.bounced = false;
     this.flyAlive = true;
     this.fair = 'pending';
+    this.torcheShown = false;
     this.prev = { x: b.sim.x, y: b.sim.y, z: b.sim.z };
 
     // la frappeuse devient coureuse
     const bd = this.batterDef!;
     this.playBatter = bd;
     this.stats.line(bd).ab++;
+    // phrase de bande dessinée propre à la frappeuse (ex. Maryse : « Houle ma poule ! »)
+    if (bd.kind === 'girl' && bd.hitPhrase) this.hud('hud-comic', { text: bd.hitPhrase });
     const rig = this.batterRig!;
     this.batterRig = null;
     this.dropBat(rig);
@@ -930,6 +966,16 @@ export class GameScene extends Phaser.Scene {
     if (this.ignoreCatch) {
       this.ignoreCatch.t -= dt;
       if (this.ignoreCatch.t <= 0) this.ignoreCatch = null;
+    }
+
+    // frappe plus loin que la moitié du champ : effet de bande dessinée « GROSSE TORCHE ! »
+    if (!this.torcheShown && (b.state === 'batted' || b.state === 'homerun') && this.fair !== 'foul') {
+      if (Math.hypot(b.sim.x, b.sim.y) > FIELD.fenceRadius * 0.5 && isFairPosition(b.sim.x, b.sim.y)) {
+        this.torcheShown = true;
+        this.hud('hud-torche');
+        Sound.play('crowd', 0.9);
+        Sound.play('whoosh');
+      }
     }
 
     // bonne ou fausse balle (balle au sol avant les buts)
@@ -1756,7 +1802,7 @@ export class GameScene extends Phaser.Scene {
         if (this.holder && this.holder === this.controlled) hint = 'ESPACE ou OK : lancer !';
         else hint = this.touch ? 'SPRINT : courir plus vite   ·   touche l’écran : plonger !' : 'FLÈCHES : sprint vers la balle   ·   OK : plonger !';
       } else if (this.phase === 'aim') hint = 'ESPACE ou OK quand l’aiguille est dans le VERT : super lancer !';
-      else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = 'Billy lance… prépare-toi !';
+      else if (this.phase === 'pitch' || this.phase === 'windup' || this.phase === 'sign') hint = `${stat.shortName(this.pitcher.def)} lance… prépare-toi !`;
     }
     const batter = this.batterDef;
     const st: HudState = {
@@ -1796,7 +1842,7 @@ export class GameScene extends Phaser.Scene {
     const h = this.home.score;
     const a = this.away.score;
     const result: GameSummary['result'] = h > a ? 'win' : h < a ? 'loss' : 'tie';
-    const ids = [...new Set([...Object.values(TURCAU.defense), ...TURCAU.lineup, ...(TURCAU.rotation ?? []).reduce<CharacterDef[]>((a, r) => a.concat(Object.values(r) as CharacterDef[]), [])].map((c) => c!.id))];
+    const ids = rosterOf(this.home.cfg).map((c) => c.id);
     const mvp = this.stats.mvp(ids);
     const hr = this.stats.sum(ids, 'hr');
     const k = this.stats.sum(ids, 'k');
@@ -1815,6 +1861,7 @@ export class GameScene extends Phaser.Scene {
       away: a,
       homeName: this.home.cfg.short,
       awayName: this.away.cfg.short,
+      homeId: this.home.cfg.id,
       result,
       mvpId: mvp ? mvp.def.id : null,
       mvpText: mvp ? GameStats.describe(mvp.line, mvp.def.kind === 'dog' && mvp.def.role === 'pitcher') : '',

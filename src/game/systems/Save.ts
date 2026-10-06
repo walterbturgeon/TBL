@@ -15,6 +15,7 @@ export interface Settings {
   innings: number;
   timingAid: boolean;
   opponent: string;
+  myTeam: string;
   quality: Quality;
   stadiumSounds: boolean;
 }
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: Settings = {
   innings: RULES.innings,
   timingAid: true,
   opponent: 'visiteur',
+  myTeam: 'turcau',
   quality: isTVDevice() ? 'light' : 'normal',
   stadiumSounds: true,
 };

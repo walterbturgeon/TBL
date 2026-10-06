@@ -26,6 +26,8 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(300, 15, 26, 61);
+    this.rigs = []; // les personnages du menu précédent sont détruits
+    this.buttons = [];
     new FieldRenderer(this, TURCAU, VISITORS);
     this.add.rectangle(960, 540, 1920, 1080, 0x0f1a3d, 0.5);
 

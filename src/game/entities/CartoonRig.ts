@@ -916,6 +916,10 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         ],
         false,
       );
+    } else if (ch === 'I') {
+      g.lineBetween(x, y - 4.5, x, y + 4.5);
+      g.lineBetween(x - 3, y - 4.5, x + 3, y - 4.5);
+      g.lineBetween(x - 3, y + 4.5, x + 3, y + 4.5);
     } else if (ch === 'E') {
       g.strokePoints(
         [
