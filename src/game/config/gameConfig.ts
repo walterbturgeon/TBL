@@ -37,10 +37,11 @@ export const PHYSICS = {
 
 /** Fenêtres de timing de la frappe, en millisecondes (avant le multiplicateur de difficulté). */
 export const TIMING = {
-  perfect: 45,
-  good: 105,
-  ok: 165,
-  max: 230,
+  // 5 % plus large que 45 / 105 / 165 / 230 : frappe un peu plus facile
+  perfect: 47,
+  good: 110,
+  ok: 173,
+  max: 242,
 };
 
 /** Fenêtres de timing de l'IA au bâton (plus étroites : l'IA ne doit pas frapper plus souvent). */

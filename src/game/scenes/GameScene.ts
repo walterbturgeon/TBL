@@ -611,7 +611,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Jauge de lancer : OK dans le vert = super lancer de Billy. */
   private updateAim() {
-    const period = 1.25; // aiguille 20 % plus lente (plus facile d'avoir un super lancer)
+    const period = 1.25 / 1.08; // aiguille 8 % plus rapide que le réglage précédent (1,25 s)
     const u = (this.phaseT / period) % 1;
     this.meterPos = u < 0.5 ? u * 2 : 2 - u * 2;
     const pressed = this.inp.swing || this.swingQueue.length > 0;
