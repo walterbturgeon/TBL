@@ -241,9 +241,9 @@ export const ECUREUILS: TeamConfig = {
 // Les coiffures non précisées, les yeux, les statistiques, les numéros et les couleurs sont des propositions.
 // Les 6 autres personnes sont inventées pour compléter l'équipe.
 const ITQ = {
-  emilie: rival('itaq_emilie', 'Émilie Cauchy', 3, '#f2cf5b', 'curly', 6, 6, 7, 66, { eyeColor: '#5aa6e0' }),
+  emilie: rival('itaq_emilie', 'Émilie Cauchy', 3, '#f2cf5b', 'curly', 6, 6, 7, 66, { eyeColor: '#5aa6e0', hitPhrase: 'Grosse torche !' }),
   maryse: rival('itaq_maryse', 'Maryse', 7, '#5a3418', 'ponytail', 5, 7, 6, 64, { eyeColor: '#6b4423', hitPhrase: 'Houle ma poule !' }),
-  renaud: rival('itaq_renaud', 'Renaud Masawipi', 12, '#141414', 'short', 7, 6, 6, 67, { eyeColor: '#6b4423' }),
+  renaud: rival('itaq_renaud', 'Renaud Masawipi', 12, '#141414', 'short', 7, 6, 6, 67, { eyeColor: '#6b4423', hitPhrase: 'Enwoye Deapti !' }),
   // personnes inventées
   laurie: rival('itaq_laurie', 'Laurie', 4, '#8a5530', 'braid', 5, 7, 6, 63),
   felix: rival('itaq_felix', 'Félix', 9, '#3b2210', 'curlyShort', 6, 6, 6, 69),

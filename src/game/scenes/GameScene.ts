@@ -969,7 +969,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     // frappe plus loin que la moitié du champ : effet de bande dessinée « GROSSE TORCHE ! »
-    if (!this.torcheShown && (b.state === 'batted' || b.state === 'homerun') && this.fair !== 'foul') {
+    // (pas de doublon si la phrase de la frappeuse est déjà « grosse torche »)
+    const pb = this.playBatter;
+    const samePhrase = pb?.kind === 'girl' && (pb.hitPhrase ?? '').toLowerCase().replace(/[^a-z]/g, '') === 'grossetorche';
+    if (!this.torcheShown && !samePhrase && (b.state === 'batted' || b.state === 'homerun') && this.fair !== 'foul') {
       if (Math.hypot(b.sim.x, b.sim.y) > FIELD.fenceRadius * 0.5 && isFairPosition(b.sim.x, b.sim.y)) {
         this.torcheShown = true;
         this.hud('hud-torche');
