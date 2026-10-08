@@ -78,6 +78,18 @@ export class OptionsScene extends Phaser.Scene {
         },
       },
       {
+        label: () => `VOLLEYBALL : POINTS PAR SET   ◀ ${st().volleyPoints} ▶`,
+        act: (d) => {
+          const list = [15, 21, 25];
+          const i = Math.max(0, list.indexOf(st().volleyPoints));
+          Save.updateSettings({ volleyPoints: list[(i + (d === 0 ? 1 : d) + list.length) % list.length] });
+        },
+      },
+      {
+        label: () => `VOLLEYBALL : SETS   ◀ ${st().volleySets === 3 ? '3 (2 gagnants)' : '1'} ▶`,
+        act: () => Save.updateSettings({ volleySets: st().volleySets === 3 ? 1 : 3 }),
+      },
+      {
         label: () => `AIDE AU TIMING   ${st().timingAid ? 'OUI' : 'NON'}`,
         act: () => Save.updateSettings({ timingAid: !st().timingAid }),
       },

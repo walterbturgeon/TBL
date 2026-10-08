@@ -32,7 +32,12 @@ export type Action =
   | 'shakeFur'
   | 'sad'
   | 'paw'
-  | 'flinch';
+  | 'flinch'
+  | 'bump'
+  | 'set'
+  | 'spike'
+  | 'block'
+  | 'serve';
 
 export interface RigLook {
   id: string;
@@ -56,12 +61,13 @@ export interface RigLook {
   capLogo: number;
   logoLetter: string;
   catcherGear: boolean;
+  volley: boolean; // tenue de volleyball : pas de casquette, short, genouillères
   bodyWidth: number;
   expression: Expression;
   detail: boolean; // portraits : iris colorés, reflets
 }
 
-export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear?: boolean; detail?: boolean } = {}): RigLook {
+export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear?: boolean; detail?: boolean; volley?: boolean } = {}): RigLook {
   const c = team.colors;
   const jersey = hex(def.uniformColor ?? c.primary);
   const base = {
@@ -76,6 +82,7 @@ export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear
     capLogo: hex(c.capLogo),
     logoLetter: team.logoLetter,
     catcherGear: !!opts.catcherGear,
+    volley: !!opts.volley,
     expression: def.expression,
     detail: !!opts.detail,
   };
@@ -459,16 +466,40 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       [this.legR, 1],
     ] as const) {
       g.clear();
-      poly(g, L.pants, [
-        { x: -5, y: -1 },
-        { x: 5, y: -1 },
-        { x: 4.5, y: 14 },
-        { x: -4.5, y: 14 },
-      ]);
-      g.fillStyle(L.socks, 1);
-      g.fillRect(-4, 12, 8, 8);
-      g.lineStyle(2, OUT, 1);
-      g.strokeRect(-4, 12, 8, 8);
+      if (L.volley) {
+        // jambe nue, genouillère noire, bas blanc
+        poly(g, L.skin, [
+          { x: -4.4, y: 4 },
+          { x: 4.4, y: 4 },
+          { x: 4, y: 15 },
+          { x: -4, y: 15 },
+        ], 2.5);
+        poly(g, L.jersey, [
+          { x: -5.2, y: -1 },
+          { x: 5.2, y: -1 },
+          { x: 5, y: 6 },
+          { x: -5, y: 6 },
+        ]);
+        g.fillStyle(0x222222, 1);
+        g.fillRoundedRect(-4.8, 8.5, 9.6, 5, 2);
+        g.lineStyle(2, OUT, 1);
+        g.strokeRoundedRect(-4.8, 8.5, 9.6, 5, 2);
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(-4, 15, 8, 5);
+        g.lineStyle(2, OUT, 1);
+        g.strokeRect(-4, 15, 8, 5);
+      } else {
+        poly(g, L.pants, [
+          { x: -5, y: -1 },
+          { x: 5, y: -1 },
+          { x: 4.5, y: 14 },
+          { x: -4.5, y: 14 },
+        ]);
+        g.fillStyle(L.socks, 1);
+        g.fillRect(-4, 12, 8, 8);
+        g.lineStyle(2, OUT, 1);
+        g.strokeRect(-4, 12, 8, 8);
+      }
       if (L.catcherGear) {
         g.fillStyle(0x2c3550, 1);
         g.fillRoundedRect(-5.5, 6, 11, 15, 3);
@@ -483,6 +514,11 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         g.lineStyle(1.5, OUT, 1);
         g.lineBetween(side * 1 - 2, 19.5, side * 1 - 2, 23);
         g.lineBetween(side * 1 + 2, 19.5, side * 1 + 2, 23);
+      } else if (L.volley) {
+        // espadrilles blanches avec une bande de la couleur de l'équipe
+        ell(g, 0xf4f4f4, side * 1, 22, 13, 7);
+        g.fillStyle(L.trim === 0xffffff ? L.jersey : L.trim, 1);
+        g.fillRect(side * 1 - 4, 21, 8, 2);
       } else {
         ell(g, 0x1c1c1c, side * 1, 22, 13, 7);
         g.fillStyle(0xffffff, 0.7);
@@ -503,10 +539,10 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     t.fillRoundedRect(-tw / 2, -23, tw, 25, 7);
     t.lineStyle(LW, OUT, 1);
     t.strokeRoundedRect(-tw / 2, -23, tw, 25, 7);
-    // ceinture et pantalon
-    t.fillStyle(L.pants, 1);
+    // ceinture et pantalon (au volleyball : haut du short, sans ceinture)
+    t.fillStyle(L.volley ? L.jersey : L.pants, 1);
     t.fillRect(-tw / 2 + 1.5, -1, tw - 3, 4);
-    t.fillStyle(0x1c1c1c, 1);
+    t.fillStyle(L.volley ? shade('#' + L.jersey.toString(16).padStart(6, '0'), 0.8) : 0x1c1c1c, 1);
     t.fillRect(-tw / 2 + 1.5, -2.5, tw - 3, 3);
     // passepoil
     t.lineStyle(2, L.trim, 1);
@@ -550,7 +586,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       g.lineStyle(2, L.trim, 1);
       g.lineBetween(-4, 6, 4, 6);
       const gloveSide = front ? 1 : -1;
-      if (side === gloveSide) {
+      if (side === gloveSide && !L.volley) {
         const r = L.catcherGear ? 9.5 : 7;
         circ(g, 0x9b5a2a, 0, 19, r);
         g.lineStyle(1.5, 0x5a3010, 1);
@@ -789,7 +825,19 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         }
       }
     }
-    this.drawCap(front);
+    if (L.volley) {
+      // pas de casquette : le dessus de la tête est en cheveux, avec une frange
+      this.capG.clear();
+      if (front && L.kind === 'girl') {
+        const top: Pt[] = [];
+        for (let i = 0; i <= 16; i++) {
+          const a = Math.PI + (i / 16) * Math.PI;
+          top.push({ x: Math.cos(a) * 19, y: 1 + Math.sin(a) * 20.5 });
+        }
+        top.push({ x: 18.5, y: -2 }, { x: 14, y: -4 }, { x: 9, y: -2.5 }, { x: 4, y: -5 }, { x: -1, y: -3 }, { x: -6, y: -5 }, { x: -11, y: -3 }, { x: -15, y: -4.5 }, { x: -18.5, y: -2 });
+        poly(hf, L.hair, top);
+      }
+    } else this.drawCap(front);
     this.drawFace();
     this.drawMask();
   }
@@ -1212,6 +1260,11 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       sad: 0.9,
       paw: 0.9,
       flinch: 0.35,
+      bump: 0.35,
+      set: 0.38,
+      spike: 0.62,
+      block: 0.7,
+      serve: 0.5,
     };
     this.action = a;
     this.actionT = 0;
@@ -1455,6 +1508,39 @@ export class CartoonRig extends Phaser.GameObjects.Container {
           x.bodyY = 2 * Math.sin(p * Math.PI);
           x.earR = -0.9 * Math.sin(p * Math.PI);
           x.headR = -0.08;
+          break;
+        // ---- volleyball
+        case 'bump': // manchette : bras joints vers l'avant, genoux pliés
+          x.armLr = -0.55;
+          x.armRr = 0.55;
+          x.legLsy = 0.82;
+          x.legRsy = 0.82;
+          x.bodyY = 3 - 4 * Math.sin(p * Math.PI);
+          break;
+        case 'set': // passe : les deux mains au-dessus de la tête
+          x.armLr = 2.7;
+          x.armRr = -2.7;
+          x.bodyY = -4 * Math.sin(p * Math.PI);
+          break;
+        case 'spike': {
+          // smash : saut, bras armé puis frappe
+          x.bodyY = -34 * Math.sin(p * Math.PI);
+          x.armLr = p < 0.45 ? 2.9 : 2.9 - 4.2 * ((p - 0.45) / 0.55);
+          x.armRr = -2.2 * (1 - p);
+          x.legLsy = 0.8;
+          x.legRsy = 0.8;
+          x.bodyR = -0.12 * Math.sin(p * Math.PI);
+          break;
+        }
+        case 'block': // bloc : saut, bras tendus
+          x.bodyY = -30 * Math.sin(p * Math.PI);
+          x.armLr = 3.0;
+          x.armRr = -3.0;
+          break;
+        case 'serve': // service : lancer de la balle, puis frappe
+          x.armRr = p < 0.4 ? -2.6 * (p / 0.4) : -2.6;
+          x.armLr = p < 0.4 ? 2.9 * (p / 0.4) : 2.9 - 3.6 * ((p - 0.4) / 0.6);
+          x.bodyY = -8 * Math.sin(p * Math.PI);
           break;
       }
       if (this.actionT >= this.actionDur) {

@@ -18,6 +18,8 @@ export interface Settings {
   myTeam: string;
   quality: Quality;
   stadiumSounds: boolean;
+  volleyPoints: number; // volleyball : points par set
+  volleySets: number; // volleyball : 1 ou 3 sets
 }
 
 export interface CareerLine {
@@ -39,6 +41,8 @@ export interface Records {
   bestMargin: number;
   mostHomeRunsGame: number;
   career: Record<string, CareerLine>;
+  volleyWins?: number;
+  volleyLosses?: number;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -52,6 +56,8 @@ const DEFAULT_SETTINGS: Settings = {
   myTeam: 'turcau',
   quality: isTVDevice() ? 'light' : 'normal',
   stadiumSounds: true,
+  volleyPoints: 21,
+  volleySets: 1,
 };
 
 const DEFAULT_RECORDS: Records = {

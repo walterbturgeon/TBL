@@ -20,6 +20,17 @@ Les coureuses courent seules. En défensive, la joueuse la plus proche court seu
 
 Touches avancées (désactivées par défaut) : voir `CONTROLS` dans `src/game/config/gameConfig.ts`.
 
+## Volleyball
+
+Dans le menu, choisis **VOLLEYBALL**. Les mêmes équipes jouent à 6 contre 6, sans Billy ni Stella.
+
+- **Service :** ESPACE ou OK quand l'aiguille est dans le vert.
+- **Manchette, passe, smash :** ESPACE ou OK quand la balle arrive dans l'anneau. Les FLÈCHES ↑ ↓ visent le smash.
+- **Bloc :** ESPACE ou OK au moment du smash adverse.
+- Les joueuses se placent toutes seules. Les remplaçantes entrent à tour de rôle au service.
+- Points par set (15, 21, 25) et nombre de sets (1 ou 3) : dans les OPTIONS.
+- Réglages : `src/game/volley/VolleyConfig.ts`.
+
 ## Sons du stade
 
 L'orgue, la foule et les chants sont de vrais enregistrements, lus en ligne (ils ne sont pas stockés dans le jeu). Sans connexion, le jeu utilise ses sons synthétisés. La liste est dans `src/game/config/sounds.ts`.

@@ -67,12 +67,13 @@ export class MenuScene extends Phaser.Scene {
 
     // boutons
     const labels: [string, () => void][] = [
-      ['JOUER', () => this.go('TeamSelect')],
+      ['BASEBALL', () => this.go('TeamSelect', { sport: 'baseball' })],
+      ['VOLLEYBALL', () => this.go('TeamSelect', { sport: 'volley' })],
       ['JOUEUSES', () => this.go('Roster')],
       ['OPTIONS', () => this.go('Options')],
     ];
     this.buttons = labels.map(([l, fn], i) => {
-      const b = button(this, 960, 520 + i * 120, l, 440, 96, fn);
+      const b = button(this, 960, 480 + i * 104, l, 440, 88, fn);
       b.c.on('pointerover', () => this.select(i));
       return b;
     });
@@ -83,7 +84,7 @@ export class MenuScene extends Phaser.Scene {
     if (rec.gamesPlayed > 0)
       cartoonText(this, 960, 880, `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`, 24, '#ffd23f').setOrigin(0.5);
     cartoonText(this, 1890, 1050, 'F : plein écran', 18, '#c9d4ff').setOrigin(1, 0.5);
-    const help = cartoonText(this, 960, 450, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
+    const help = cartoonText(this, 960, 418, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
     this.tweens.add({ targets: help, alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
 
     this.addInstallButton();
@@ -142,18 +143,18 @@ export class MenuScene extends Phaser.Scene {
   private onKey(e: KeyboardEvent) {
     this.unlockAudio();
     const k = e.key;
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') this.select((this.sel + 2) % 3);
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') this.select((this.sel + 1) % 3);
+    if (k === 'ArrowUp' || k === 'w' || k === 'W') this.select((this.sel + this.buttons.length - 1) % this.buttons.length);
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') this.select((this.sel + 1) % this.buttons.length);
     else if (k === 'Enter' || k === ' ') {
       Sound.play('select');
       this.buttons[this.sel].c.emit('pointerdown');
     } else if (k === 'f' || k === 'F') toggleFullscreen(this);
   }
 
-  private go(key: string) {
+  private go(key: string, data?: object) {
     this.input.keyboard!.removeAllListeners();
     this.cameras.main.fadeOut(220, 15, 26, 61);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(key));
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(key, data));
   }
 
   update(_t: number, dms: number) {

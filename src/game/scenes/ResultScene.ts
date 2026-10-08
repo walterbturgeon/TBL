@@ -38,13 +38,14 @@ export class ResultScene extends Phaser.Scene {
     this.tweens.add({ targets: tt, scale: 1.05, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     cartoonText(this, 960, 220, `${s.homeName}  ${s.home}   —   ${s.away}  ${s.awayName}`, 58, '#ffffff').setOrigin(0.5);
 
-    // tableau des manches
+    // tableau des manches (ou des sets au volleyball)
+    const volley = s.sport === 'volley';
     panel(this, 360, 285, 1200, 150);
-    const n = Math.max(s.lineHome.length, s.lineAway.length, 3);
+    const n = volley ? Math.max(s.lineHome.length, 1) : Math.max(s.lineHome.length, s.lineAway.length, 3);
     const colW = Math.min(90, 760 / n);
     const x0 = 640;
-    for (let i = 0; i < n; i++) cartoonText(this, x0 + i * colW, 315, String(i + 1), 22, '#ffd23f').setOrigin(0.5);
-    cartoonText(this, x0 + n * colW + 30, 315, 'P', 22, '#ffd23f').setOrigin(0.5);
+    for (let i = 0; i < n; i++) cartoonText(this, x0 + i * colW, 315, volley ? `S${i + 1}` : String(i + 1), 22, '#ffd23f').setOrigin(0.5);
+    cartoonText(this, x0 + n * colW + 30, 315, volley ? 'SETS' : 'P', 22, '#ffd23f').setOrigin(0.5);
     const row = (y: number, name: string, line: number[], total: number) => {
       cartoonText(this, 400, y, name, 28, '#ffffff').setOrigin(0, 0.5);
       for (let i = 0; i < n; i++) cartoonText(this, x0 + i * colW, y, line[i] === undefined ? '–' : String(line[i]), 28, '#ffffff').setOrigin(0.5);
@@ -60,12 +61,12 @@ export class ResultScene extends Phaser.Scene {
     const mvp = rosterOf(team).find((c) => c.id === s.mvpId);
     if (mvp) {
       const isCatcher = team.defense.C.id === mvp.id;
-      const r = new CartoonRig(this, lookFor(mvp, team, { detail: true, catcherGear: isCatcher }));
+      const r = new CartoonRig(this, lookFor(mvp, team, { detail: true, catcherGear: isCatcher && !volley, volley }));
       this.add.existing(r);
       r.baseScale = 2.4 * (stat.height(mvp) / 66);
       r.setPosition(520, 850);
       r.applyScale(1);
-      if (isCatcher) r.showMask(false);
+      if (isCatcher && !volley) r.showMask(false);
       r.setExpression('happy');
       this.rig = r;
       cartoonText(this, 660, 600, stat.shortName(mvp), 44, '#ffffff').setOrigin(0, 0.5);
@@ -80,7 +81,7 @@ export class ResultScene extends Phaser.Scene {
     panel(this, 1040, 465, 520, 440);
     const tn = cartoonText(this, 1300, 505, team.name.toUpperCase(), 30, '#ffd23f').setOrigin(0.5);
     if (tn.width > 480) tn.setScale(480 / tn.width);
-    const lines: [string, number][] = [
+    const lines: [string, number][] = s.statLines ?? [
       ['Coups sûrs', s.hits],
       ['Circuits', s.homeRuns],
       ['Retraits en défensive', s.outsMade],
@@ -91,10 +92,13 @@ export class ResultScene extends Phaser.Scene {
       cartoonText(this, 1520, 580 + i * 70, String(v), 36, '#7dff7a').setOrigin(1, 0.5);
     });
     const rec = Save.records();
-    cartoonText(this, 1300, 870, `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`, 22, '#c9d4ff').setOrigin(0.5);
+    const fiche = volley
+      ? `Fiche au volleyball : ${rec.volleyWins ?? 0} V – ${rec.volleyLosses ?? 0} D`
+      : `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`;
+    cartoonText(this, 1300, 870, fiche, 22, '#c9d4ff').setOrigin(0.5);
 
     this.buttons = [
-      button(this, 760, 990, 'REJOUER', 380, 86, () => this.go('Game')),
+      button(this, 760, 990, 'REJOUER', 380, 86, () => this.go(volley ? 'Volley' : 'Game')),
       button(this, 1160, 990, 'MENU', 380, 86, () => this.go('Menu')),
     ];
     this.buttons.forEach((b, i) => b.c.on('pointerover', () => this.select(i)));

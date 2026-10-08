@@ -28,6 +28,19 @@ export interface HudState {
   sprint: number; // -1 = cachée
 }
 
+/** État de l'interface pour le volleyball. */
+export interface VHudState {
+  left: { name: string; color: string; score: number; sets: number };
+  right: { name: string; color: string; score: number; sets: number };
+  serving: 'L' | 'R';
+  server: string;
+  setNo: number;
+  target: number;
+  setsToWin: number;
+  hint: string;
+  muted: boolean;
+}
+
 /** Interface par-dessus le jeu : pointage, compte, buts occupés, messages, pause. */
 export class HudScene extends Phaser.Scene {
   constructor() {
@@ -50,6 +63,8 @@ export class HudScene extends Phaser.Scene {
   private popups: Phaser.GameObjects.Text[] = [];
   private bannerUntil = 0;
   private touch = false;
+  private mode: 'baseball' | 'volley' = 'baseball';
+  private playKey = 'Game'; // scène de jeu à mettre en pause ou à recommencer
 
   create() {
     // la scène est réutilisée d'une partie à l'autre : on repart à zéro
@@ -59,28 +74,46 @@ export class HudScene extends Phaser.Scene {
     this.sprintBtn = null;
     this.handlers = [];
     this.comicBusyUntil = 0;
-    // panneau du pointage
-    panel(this, 22, 20, 470, 206);
-    panel(this, 1920 - 22 - 400, 20, 400, 128);
-    this.dyn = this.add.graphics();
-    this.hintBox = this.add.graphics();
-
+    this.t = {};
+    this.mode = (this.registry.get('hudMode') as 'baseball' | 'volley') ?? 'baseball';
+    this.playKey = this.mode === 'volley' ? 'Volley' : 'Game';
     const T = (k: string, x: number, y: number, s: string, size: number, color = '#ffffff', ox = 0) => {
       this.t[k] = cartoonText(this, x, y, s, size, color).setOrigin(ox, 0.5);
     };
-    T('awayName', 70, 58, '', 30);
-    T('homeName', 70, 104, '', 30);
-    T('awayScore', 330, 58, '0', 36, '#ffffff', 1);
-    T('homeScore', 330, 104, '0', 36, '#ffffff', 1);
-    T('inning', 44, 150, '', 26, '#ffd23f');
-    T('outsLbl', 236, 150, 'RETRAITS', 18, '#ffffff');
-    T('ballsLbl', 44, 196, 'BALLES', 18, '#ffffff');
-    T('strikesLbl', 236, 196, 'PRISES', 18, '#ffffff');
-    T('batLbl', 1920 - 400, 48, 'AU BÂTON', 17, '#ffd23f');
-    T('batter', 1920 - 400, 78, '', 28);
-    T('pitLbl', 1920 - 400, 112, 'LANCEUR', 17, '#ffd23f');
-    T('pitcher', 1920 - 260, 112, '', 22);
-    T('pitch', 1920 - 22, 172, '', 22, '#7fd3ff', 1);
+    if (this.mode === 'volley') {
+      // pointage du volleyball : points, sets, équipe au service
+      panel(this, 22, 20, 560, 168);
+      panel(this, 1920 - 22 - 400, 20, 400, 100);
+      this.dyn = this.add.graphics();
+      this.hintBox = this.add.graphics();
+      T('lName', 74, 58, '', 30);
+      T('rName', 74, 104, '', 30);
+      T('lScore', 400, 58, '0', 38, '#ffffff', 1);
+      T('rScore', 400, 104, '0', 38, '#ffffff', 1);
+      T('setsLbl', 450, 36, 'SETS', 14, '#ffd23f', 0);
+      T('setInfo', 44, 150, '', 22, '#ffd23f');
+      T('srvLbl', 1920 - 400, 48, 'AU SERVICE', 17, '#ffd23f');
+      T('server', 1920 - 400, 84, '', 28);
+    } else {
+      // panneau du pointage
+      panel(this, 22, 20, 470, 206);
+      panel(this, 1920 - 22 - 400, 20, 400, 128);
+      this.dyn = this.add.graphics();
+      this.hintBox = this.add.graphics();
+      T('awayName', 70, 58, '', 30);
+      T('homeName', 70, 104, '', 30);
+      T('awayScore', 330, 58, '0', 36, '#ffffff', 1);
+      T('homeScore', 330, 104, '0', 36, '#ffffff', 1);
+      T('inning', 44, 150, '', 26, '#ffd23f');
+      T('outsLbl', 236, 150, 'RETRAITS', 18, '#ffffff');
+      T('ballsLbl', 44, 196, 'BALLES', 18, '#ffffff');
+      T('strikesLbl', 236, 196, 'PRISES', 18, '#ffffff');
+      T('batLbl', 1920 - 400, 48, 'AU BÂTON', 17, '#ffd23f');
+      T('batter', 1920 - 400, 78, '', 28);
+      T('pitLbl', 1920 - 400, 112, 'LANCEUR', 17, '#ffd23f');
+      T('pitcher', 1920 - 260, 112, '', 22);
+      T('pitch', 1920 - 22, 172, '', 22, '#7fd3ff', 1);
+    }
     T('hint', 960, 1040, '', 24, '#ffffff', 0.5);
     T('mute', 1900, 1040, '', 18, '#ffffff', 1);
     T('timing', 960, 800, '', 44, '#7dff7a', 0.5);
@@ -93,6 +126,7 @@ export class HudScene extends Phaser.Scene {
       this.handlers.push([ev, fn]);
     };
     on('hud-state', (s: HudState) => this.applyState(s));
+    on('hud-vstate', (s: VHudState) => this.applyVState(s));
     on('hud-popup', (p: { text: string; color: string; size: number; sub?: string }) => this.popup(p));
     on('hud-banner', (b: { title: string; sub: string; color: string }) => this.banner(b));
     on('hud-timing', (p: { text: string; color: string }) => this.timing(p));
@@ -140,7 +174,7 @@ export class HudScene extends Phaser.Scene {
 
     // bouton SPRINT pour les écrans tactiles (pas de flèches sur un téléphone)
     this.touch = isTouch();
-    if (this.touch) {
+    if (this.touch && this.mode === 'baseball') {
       const sb = this.add.container(1790, 900);
       const sg = this.add.graphics();
       sg.fillStyle(0x000000, 0.35);
@@ -168,6 +202,59 @@ export class HudScene extends Phaser.Scene {
   update(_t: number, dms: number) {
     this.popupT -= dms / 1000;
     if (this.popupT <= 0) this.popupY = 0;
+  }
+
+  /** Pointage du volleyball. */
+  private applyVState(s: VHudState) {
+    const t = this.t;
+    t.lName.setText(s.left.name);
+    t.rName.setText(s.right.name);
+    t.lScore.setText(String(s.left.score));
+    t.rScore.setText(String(s.right.score));
+    t.setInfo.setText(`SET ${s.setNo}  ·  ${s.target} POINTS`);
+    t.server.setText(s.server);
+    t.mute.setText(s.muted ? 'SON COUPÉ' : '');
+    const pauseTxt = this.touch ? '❚❚ : pause' : 'ÉCHAP : pause';
+    t.hint.setText(s.hint ? `${s.hint}     ·     ${pauseTxt}` : pauseTxt);
+    const g = this.dyn;
+    g.clear();
+    const chip = (y: number, color: string) => {
+      g.fillStyle(hex(color), 1);
+      g.fillRoundedRect(40, y - 14, 22, 28, 5);
+      g.lineStyle(3, 0x111111, 1);
+      g.strokeRoundedRect(40, y - 14, 22, 28, 5);
+    };
+    chip(58, s.left.color);
+    chip(104, s.right.color);
+    // ballon devant l'équipe au service
+    const by = s.serving === 'L' ? 58 : 104;
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(426, by, 10);
+    g.lineStyle(3, 0x111111, 1);
+    g.strokeCircle(426, by, 10);
+    g.lineStyle(2, 0x2d6cdf, 1);
+    g.beginPath();
+    g.arc(426, by, 6, 0.4, 2.6);
+    g.strokePath();
+    // sets gagnés
+    const dots = (y: number, n: number) => {
+      for (let i = 0; i < s.setsToWin; i++) {
+        g.fillStyle(i < n ? 0xffd23f : 0x2a3150, 1);
+        g.fillCircle(470 + i * 26, y, 9);
+        g.lineStyle(2.5, 0x111111, 1);
+        g.strokeCircle(470 + i * 26, y, 9);
+      }
+    };
+    dots(58, s.left.sets);
+    dots(104, s.right.sets);
+    g.lineStyle(2, 0xffffff, 0.25);
+    g.lineBetween(40, 128, 562, 128);
+    const w = t.hint.width + 60;
+    this.hintBox.clear();
+    this.hintBox.fillStyle(0x0f1a3d, 0.78);
+    this.hintBox.fillRoundedRect(960 - w / 2, 1016, w, 48, 14);
+    this.hintBox.lineStyle(3, 0x111111, 1);
+    this.hintBox.strokeRoundedRect(960 - w / 2, 1016, w, 48, 14);
   }
 
   private applyState(s: HudState) {
@@ -454,7 +541,7 @@ export class HudScene extends Phaser.Scene {
         label: () => 'RECOMMENCER LA PARTIE',
         act: () => {
           this.closePause(false);
-          this.scene.start('Game');
+          this.scene.start(this.playKey);
         },
       },
       {
@@ -462,7 +549,7 @@ export class HudScene extends Phaser.Scene {
         act: () => {
           this.closePause(false);
           Sound.gameAudio(false);
-          this.scene.stop('Game');
+          this.scene.stop(this.playKey);
           this.scene.start('Menu');
         },
       },
@@ -512,7 +599,7 @@ export class HudScene extends Phaser.Scene {
   private closePause(resume = true) {
     this.pause?.destroy();
     this.pause = null;
-    if (resume) this.scene.resume('Game');
+    if (resume) this.scene.resume(this.playKey);
   }
 
   private pauseKey(e: KeyboardEvent) {

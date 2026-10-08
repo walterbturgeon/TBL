@@ -47,6 +47,8 @@ interface TeamRT {
 }
 
 export interface GameSummary {
+  sport?: 'baseball' | 'volley';
+  statLines?: [string, number][]; // statistiques d'équipe propres au sport
   home: number;
   away: number;
   homeId: string;
@@ -264,6 +266,7 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard!.removeAllListeners();
     });
 
+    this.registry.set('hudMode', 'baseball');
     this.scene.launch('Hud');
     this.scene.bringToTop('Hud');
     Sound.gameAudio(true);

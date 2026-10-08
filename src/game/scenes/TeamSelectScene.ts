@@ -30,8 +30,16 @@ export class TeamSelectScene extends Phaser.Scene {
   private boxes: { x: number; y: number; w: number; h: number }[] = [];
   private cardRigs: CartoonRig[][] = [];
   private nextBtn: MenuButton | null = null;
+  private sport: 'baseball' | 'volley' = 'baseball';
 
-  create() {
+  /** Joueuses montrées pour une équipe (au volleyball : sans les chiens). */
+  private playersOf(t: TeamConfig) {
+    const all = rosterOf(t);
+    return this.sport === 'volley' ? all.filter((c) => c.kind !== 'dog') : all;
+  }
+
+  create(data?: { sport?: 'baseball' | 'volley' }) {
+    this.sport = data?.sport ?? 'baseball';
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
     const s = Save.settings;
@@ -99,7 +107,7 @@ export class TeamSelectScene extends Phaser.Scene {
   private start() {
     this.input.keyboard!.removeAllListeners();
     this.cameras.main.fadeOut(220, 15, 26, 61);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game'));
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(this.sport === 'volley' ? 'Volley' : 'Game'));
   }
 
   private add2<T extends Phaser.GameObjects.GameObject>(o: T): T {
@@ -110,6 +118,7 @@ export class TeamSelectScene extends Phaser.Scene {
   private header(stepNo: number, title: string, sub: string) {
     this.add2(cartoonText(this, 960, 62, title, 56, '#ffd23f').setOrigin(0.5));
     this.add2(cartoonText(this, 960, 122, sub, 28, '#ffffff').setOrigin(0.5));
+    this.add2(cartoonText(this, 1890, 74, this.sport === 'volley' ? 'VOLLEYBALL' : 'BASEBALL', 22, '#ffd23f').setOrigin(1, 0.5));
     this.add2(cartoonText(this, 1890, 40, `Étape ${stepNo} de 4`, 20, '#c9d4ff').setOrigin(1, 0.5));
     const b = button(this, 130, 64, '← RETOUR', 200, 60, () => this.back());
     this.add2(b.c);
@@ -164,11 +173,11 @@ export class TeamSelectScene extends Phaser.Scene {
     const name = this.add2(cartoonText(this, x + W / 2, y + 62, t.name.toUpperCase(), 34, t.colors.secondary).setOrigin(0.5));
     if (name.width > W - 50) name.setScale((W - 50) / name.width);
     // trois personnages de l'équipe
-    const show = [t.defense.SS, t.defense.P, t.defense.CF];
+    const show = this.sport === 'volley' ? this.playersOf(t).slice(0, 3) : [t.defense.SS, t.defense.P, t.defense.CF];
     const spread = Math.min(150, (W - 40) / 3);
     const row: CartoonRig[] = [];
     show.forEach((c, k) => {
-      const r = new CartoonRig(this, lookFor(c, t, { detail: true }));
+      const r = new CartoonRig(this, lookFor(c, t, { detail: true, volley: this.sport === 'volley' }));
       this.add.existing(r);
       r.baseScale = Math.min(2.1, spread / 52) * (stat.height(c) / 66);
       r.setPosition(x + W / 2 + (k - 1) * spread, y + 470);
@@ -184,7 +193,7 @@ export class TeamSelectScene extends Phaser.Scene {
       cartoonText(this, x + W / 2, y + 560, `Frappe ${avg('power').toFixed(1)}  ·  Vitesse ${avg('speed').toFixed(1)}  ·  Défensive ${avg('defense').toFixed(1)}`, 18, '#7fd3ff').setOrigin(0.5),
     );
     if (st.width > W - 30) st.setScale((W - 30) / st.width);
-    this.add2(cartoonText(this, x + W / 2, y + 610, `${rosterOf(t).length} joueurs`, 18, '#c9d4ff').setOrigin(0.5));
+    this.add2(cartoonText(this, x + W / 2, y + 610, `${this.playersOf(t).length} joueurs`, 18, '#c9d4ff').setOrigin(0.5));
   }
 
   private select(i: number) {
@@ -205,7 +214,7 @@ export class TeamSelectScene extends Phaser.Scene {
   private buildRoster(t: TeamConfig) {
     const isMine = this.step === 'mineRoster';
     this.header(isMine ? 2 : 4, isMine ? 'TON ÉQUIPE' : 'L’ÉQUIPE ADVERSE', t.name.toUpperCase());
-    const players = rosterOf(t);
+    const players = this.playersOf(t);
     const n = players.length;
     const cols = Math.min(7, Math.ceil(n / 2));
     const gap = 14;
@@ -219,8 +228,9 @@ export class TeamSelectScene extends Phaser.Scene {
       const x = x0 + col * (W + gap);
       const y = 168 + row * (H + 16);
       this.add2(panel(this, x, y, W, H, c.kind === 'dog' ? 0x2a1f5c : 0x0f1a3d, 0.92));
-      const isCatcher = t.defense.C.id === c.id;
-      const r = new CartoonRig(this, lookFor(c, t, { detail: true, catcherGear: isCatcher }));
+      const volley = this.sport === 'volley';
+      const isCatcher = !volley && t.defense.C.id === c.id;
+      const r = new CartoonRig(this, lookFor(c, t, { detail: true, catcherGear: isCatcher, volley }));
       this.add.existing(r);
       r.baseScale = 1.7 * (stat.height(c) / 66);
       r.setPosition(x + W / 2, y + 210);
@@ -229,7 +239,8 @@ export class TeamSelectScene extends Phaser.Scene {
       this.rigs.push(r);
       const nm = this.add2(cartoonText(this, x + W / 2, y + 238, stat.shortName(c), 24, '#ffffff').setOrigin(0.5));
       if (nm.width > W - 20) nm.setScale((W - 20) / nm.width);
-      const info = this.add2(cartoonText(this, x + W / 2, y + 266, `#${c.number}  ·  ${positionsOf(t, c)}`, 15, '#7fd3ff').setOrigin(0.5));
+      const role = volley ? (i < 6 ? 'Sur le terrain' : 'Réserve (entre au service)') : positionsOf(t, c);
+      const info = this.add2(cartoonText(this, x + W / 2, y + 266, `#${c.number}  ·  ${role}`, 15, '#7fd3ff').setOrigin(0.5));
       if (info.width > W - 16) info.setScale((W - 16) / info.width);
       const bars: [string, number, number][] = [
         ['Frappe', stat.power(c), 0xff7b5c],

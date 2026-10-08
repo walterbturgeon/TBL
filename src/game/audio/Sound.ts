@@ -28,7 +28,11 @@ type SfxName =
   | 'select'
   | 'charge'
   | 'whoosh'
-  | 'foul';
+  | 'foul'
+  | 'bump'
+  | 'setTouch'
+  | 'spike'
+  | 'whistle';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 const vary = (v: number, p = 0.07) => v * (1 + (Math.random() * 2 - 1) * p);
@@ -263,6 +267,38 @@ class SoundEngine {
       case 'click':
         this.tone('square', 1300, 1300, t, 0.025, 0.06);
         break;
+      // ---- volleyball
+      case 'bump': // manchette : son sourd
+        this.tone('sine', 170 * k, 105, t, 0.12, 0.55);
+        this.burst(t, 0.05, 0.4, 'lowpass', 700 * k, 0.8);
+        break;
+      case 'setTouch': // passe : petit son doux
+        this.burst(t, 0.04, 0.3, 'bandpass', 1300 * k, 1.2);
+        this.tone('sine', 420 * k, 300, t, 0.06, 0.25);
+        break;
+      case 'spike': // smash : claquement
+        this.burst(t, 0.06, 0.95 * intensity, 'highpass', 1500 * k, 0.7);
+        this.tone('triangle', 320 * k, 120, t, 0.11, 0.6 * intensity);
+        break;
+      case 'whistle': {
+        // sifflet de l'arbitre : son aigu avec trille
+        const o = this.ctx.createOscillator();
+        const lfo = this.ctx.createOscillator();
+        const lg = this.ctx.createGain();
+        const g = this.ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 2900 * k;
+        lfo.frequency.value = 38;
+        lg.gain.value = 120;
+        lfo.connect(lg).connect(o.frequency);
+        this.env(g, t, 0.01, 0.16, 0.32);
+        o.connect(g).connect(this.sfx);
+        o.start(t);
+        lfo.start(t);
+        o.stop(t + 0.4);
+        lfo.stop(t + 0.4);
+        break;
+      }
       case 'select':
         this.tone('square', 880, 880, t, 0.05, 0.07);
         this.tone('square', 1320, 1320, t + 0.05, 0.08, 0.07);
