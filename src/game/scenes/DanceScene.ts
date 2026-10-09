@@ -30,7 +30,12 @@ const TOP_Y = 96;
 const TARGET_Y = 870;
 const ARROW_ROT = [-Math.PI / 2, Math.PI, 0, Math.PI / 2]; // la flèche de base pointe vers le haut
 const MOVES = ['danceL', 'danceDown', 'danceUp', 'danceR'] as const;
-/** Breakdance : seulement sur un appui PARFAIT (← footwork, ↓ freeze, ↑ headspin, → windmill). */
+/**
+ * Breakdance : après 3 PARFAIT de suite, la meneuse fait un grand mouvement seule
+ * (← footwork, ↓ freeze, ↑ headspin, → windmill) et le reste de l'équipe s'exclame.
+ */
+const BREAK_STREAK = 3;
+const SHOUTS = ['WOW !', 'OH !', 'OUAIS !', 'YEAH !', 'WHOA !'];
 const BREAKS = ['footwork', 'freeze', 'headspin', 'windmill'] as const;
 const BREAK_NAMES = ['FOOTWORK !', 'FREEZE !', 'HEADSPIN !', 'WINDMILL !'];
 const KEY_LANE: Record<string, Lane> = {
@@ -86,6 +91,11 @@ export class DanceScene extends Phaser.Scene {
   private rounds: Record<Side, number> = { me: 0, ai: 0 };
   private combo = 0;
   private aiCombo = 0;
+  // PARFAIT de suite (breakdance à 3) et temps de la musique où chaque groupe redevient libre
+  private perfectRun: Record<Side, number> = { me: 0, ai: 0 };
+  private leadBusy: Record<Side, number> = { me: -1, ai: -1 };
+  private crewBusy: Record<Side, number> = { me: -1, ai: -1 };
+  private songT = 0;
   private bestCombo = 0;
   private counts: Record<Grade, number> = { perfect: 0, great: 0, good: 0, miss: 0 };
   private meter = 0.5;
@@ -192,6 +202,9 @@ export class DanceScene extends Phaser.Scene {
     this.rounds = { me: 0, ai: 0 };
     this.combo = 0;
     this.aiCombo = 0;
+    this.perfectRun = { me: 0, ai: 0 };
+    this.leadBusy = { me: -1, ai: -1 };
+    this.crewBusy = { me: -1, ai: -1 };
     this.bestCombo = 0;
     this.counts = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.meter = 0.5;
@@ -404,20 +417,54 @@ export class DanceScene extends Phaser.Scene {
   }
 
   /** Pas de danse de l'équipe. perfect : un mouvement de breakdance au lieu du pas hip-hop. */
-  private crewMove(side: Side, lane: Lane, all = true, perfect = false) {
+  /** Pas hip-hop de l'équipe (sauf la meneuse pendant son breakdance, et l'équipe pendant qu'elle s'exclame). */
+  private crewMove(side: Side, lane: Lane) {
     const spb = this.player?.spb ?? 0.5;
-    if (perfect) {
-      const dur = clamp(spb * 2, 0.7, 1.5);
-      for (const d of this.crews[side]) if (all || d.front) d.rig.play(BREAKS[lane], dur);
-      return;
-    }
     const dur = clamp(spb * 0.85, 0.3, 0.55);
-    for (const d of this.crews[side]) if (all || d.front) d.rig.play(MOVES[lane], dur);
+    for (const d of this.crews[side]) {
+      if (d.front ? this.songT < this.leadBusy[side] : this.songT < this.crewBusy[side]) continue;
+      d.rig.play(MOVES[lane], dur);
+    }
   }
 
   private crewStumble(side: Side) {
+    if (this.songT < this.leadBusy[side]) return;
     const lead = this.crews[side].find((d) => d.front);
     lead?.rig.play('flinch', 0.4);
+  }
+
+  /** Compte les PARFAIT de suite ; vrai si la série déclenche un breakdance. */
+  private countPerfect(side: Side, g: Grade) {
+    if (g !== 'perfect') {
+      this.perfectRun[side] = 0;
+      return false;
+    }
+    this.perfectRun[side]++;
+    if (this.perfectRun[side] < BREAK_STREAK || this.songT < this.leadBusy[side]) return false;
+    this.perfectRun[side] = 0;
+    return true;
+  }
+
+  /** Grand mouvement de breakdance de la meneuse ; le reste de l'équipe s'exclame. */
+  private breakdance(side: Side, lane: Lane) {
+    const spb = this.player?.spb ?? 0.5;
+    const dur = clamp(spb * 4, 1.5, 2.1);
+    const lead = this.crews[side].find((d) => d.front);
+    if (lead) {
+      lead.rig.play(BREAKS[lane], dur);
+      // la meneuse grandit un peu pendant son mouvement : on la remarque
+      const base = lead.rig.scale;
+      this.tweens.add({ targets: lead.rig, scale: base * 1.15, duration: 180, yoyo: true, hold: dur * 1000 - 360, ease: 'Back.Out' });
+    }
+    this.leadBusy[side] = this.songT + dur;
+    this.crewBusy[side] = this.songT + 0.9;
+    this.crews[side].forEach((d, i) => {
+      if (d.front) return;
+      d.rig.play('celebrate', 0.9);
+      d.rig.say(SHOUTS[(i + lane) % SHOUTS.length], side === 'me' ? '#ffd23f' : '#ffffff', 0.9, 13);
+    });
+    this.stage.pulse(0.16);
+    this.stage.cheer();
   }
 
   // ================================================================ choix de la musique
@@ -532,6 +579,7 @@ export class DanceScene extends Phaser.Scene {
     const t = p ? p.now() : 0;
     const beat = p ? t / p.spb : this.time.now / 600;
     const playing = this.phase === 'play' && !this.paused;
+    this.songT = t;
 
     // les danseuses bougent au rythme
     for (const side of ['me', 'ai'] as const)
@@ -677,13 +725,15 @@ export class DanceScene extends Phaser.Scene {
       const g: Grade = r < odds[0] ? 'perfect' : r < odds[0] + odds[1] ? 'great' : r < odds[0] + odds[1] + odds[2] ? 'good' : 'miss';
       if (g === 'miss') {
         this.aiCombo = 0;
+        this.perfectRun.ai = 0;
         this.crewStumble('ai');
       } else {
         this.aiCombo++;
         const pts = DANCE.points[g] * comboMul(this.aiCombo);
         this.score.ai += pts;
         this.roundScore.ai += pts;
-        this.crewMove('ai', n.lane, true, g === 'perfect');
+        if (this.countPerfect('ai', g)) this.breakdance('ai', n.lane);
+        else this.crewMove('ai', n.lane);
       }
     }
     this.led.ai.score.setText(String(this.score.ai));
@@ -727,6 +777,7 @@ export class DanceScene extends Phaser.Scene {
     this.counts[g]++;
     if (g === 'miss') {
       this.comboBreak();
+      this.perfectRun.me = 0;
       this.crewStumble('me');
     } else {
       this.combo++;
@@ -734,8 +785,10 @@ export class DanceScene extends Phaser.Scene {
       const pts = DANCE.points[g] * comboMul(this.combo);
       this.score.me += pts;
       this.roundScore.me += pts;
-      this.crewMove('me', lane, true, g === 'perfect');
-      if (g === 'perfect') {
+      const brk = this.countPerfect('me', g);
+      if (brk) this.breakdance('me', lane);
+      else this.crewMove('me', lane);
+      if (brk) {
         // nom du mouvement de breakdance sous PARFAIT
         this.breakTxt.setText(BREAK_NAMES[lane]);
         this.tweens.killTweensOf(this.breakTxt);

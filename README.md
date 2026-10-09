@@ -63,7 +63,7 @@ Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rou
 - Les flèches descendent dans la piste du centre. Appuie sur **← ↓ ↑ →** (ou WASD) quand une flèche arrive dans sa cible.
 - Sur un téléphone (à l'horizontale), l'écran est partagé en 4 colonnes : ←, ↓, ↑, →. Touche la colonne de la flèche.
 - Chaque bonne flèche fait danser ton équipe : pas à gauche, descente, saut, pas à droite.
-- Sur un appui **PARFAIT**, l'équipe fait un mouvement de breakdance : ← footwork, ↓ freeze, ↑ headspin, → windmill.
+- Après **3 PARFAIT de suite**, la meneuse fait seule un grand mouvement de breakdance (← footwork, ↓ freeze, ↑ headspin, → windmill) et le reste de l'équipe s'exclame.
 - Une nouvelle équipe de 4 danseuses monte sur scène à chaque round. L'équipe qui a le plus de points gagne le round.
 - ÉCHAP ou ❚❚ : pause.
 - 8 musiques originales sans paroles : Rue Turcau, Néon Funk, Gros 808, et 5 dans le style du hip-hop de 2012-2013, avec des noms qui rappellent les titres connus (Pistache Packin’, Toozie Glide, Trip Club Remix, Dracoola, M.E.E.D Town). Les mélodies sont originales. Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
