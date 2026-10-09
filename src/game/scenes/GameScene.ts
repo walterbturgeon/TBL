@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { CONTROLS, DIFFICULTY, FIELD, PACE, PHYSICS, RULES, TIMING_AI, VIEW, type DifficultySettings } from '../config/gameConfig';
+import { CONTROLS, DIFFICULTY, DIFFICULTY_PLUS, FIELD, PACE, PHYSICS, RULES, TIMING_AI, VIEW, type DifficultySettings } from '../config/gameConfig';
+import { Progress, atLevel, blendAt } from '../systems/Progress';
 import { rosterOf, sportTeam, stat, teamsFor, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
 import { Ball, pitchPos, stepBall } from '../entities/Ball';
 import { Fielder } from '../entities/Fielder';
@@ -162,13 +163,20 @@ export class GameScene extends Phaser.Scene {
   private meter!: Phaser.GameObjects.Graphics;
   private meterText!: Phaser.GameObjects.Text;
   private meterPos = 0;
+  // difficulté progressive : vitesse de l'aiguille et largeur des zones de la jauge de lancer
+  private meterSpeed = 1;
+  private meterSuper = 0.1;
+  private meterGood = 0.24;
+  private levelIdx = -2;
+  private levelT = 0;
 
   // ================================================================ création
   create() {
     const s = Save.settings;
-    this.diff = DIFFICULTY[s.difficulty];
+    this.levelIdx = -2;
+    this.levelT = 0;
+    this.applyLevel();
     this.innings = s.innings;
-    this.winHuman = windowsFor(this.diff.timingWindowMul);
     this.winAI = windowsFor(1, TIMING_AI);
     this.stats = new GameStats();
     this.runners = [];
@@ -345,6 +353,15 @@ export class GameScene extends Phaser.Scene {
       this.hud('hud-pause', true);
       this.scene.pause();
       return;
+    }
+    // difficulté progressive : le temps de jeu fait monter le niveau
+    if (this.phase !== 'over') {
+      Progress.add('baseball', dt);
+      this.levelT += dt;
+      if (this.levelT >= 1) {
+        this.levelT = 0;
+        this.applyLevel();
+      }
     }
     if (this.inp.mute) {
       Save.updateSettings({ muted: !Save.settings.muted });
@@ -612,9 +629,28 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Réglages de difficulté selon le niveau (progressif ou fixe). Annonce le nouveau niveau. */
+  private applyLevel() {
+    const d = Progress.level('baseball');
+    this.diff = Progress.on
+      ? blendAt(d, [DIFFICULTY.easy, DIFFICULTY.normal, DIFFICULTY.hard, DIFFICULTY_PLUS.veryHard, DIFFICULTY_PLUS.impossible])
+      : DIFFICULTY[Save.settings.difficulty];
+    this.winHuman = windowsFor(this.diff.timingWindowMul);
+    this.meterSpeed = atLevel(d, [1, 1, 1, 1.15, 1.35]);
+    this.meterSuper = atLevel(d, [0.1, 0.1, 0.1, 0.08, 0.055]);
+    this.meterGood = atLevel(d, [0.24, 0.24, 0.24, 0.2, 0.14]);
+    const st = Progress.stage('baseball');
+    if (st.index !== this.levelIdx) {
+      if (this.levelIdx >= 0 && st.index > this.levelIdx) this.popup(`NIVEAU ${st.index + 1} : ${st.name.toUpperCase()} !`, st.color, 58);
+      this.levelIdx = st.index;
+    }
+    this.hud('hud-level', { text: st.text, color: st.color });
+  }
+
   /** Jauge de lancer : OK dans le vert = super lancer de Billy. */
   private updateAim() {
-    const period = 1.25 / 1.08 / 1.05; // aiguille : +8 %, puis encore +5 % (environ 1,10 s par aller-retour)
+    // aiguille : +8 %, puis encore +5 % (environ 1,10 s par aller-retour) ; plus vite aux niveaux très durs
+    const period = 1.25 / 1.08 / 1.05 / this.meterSpeed;
     const u = (this.phaseT / period) % 1;
     this.meterPos = u < 0.5 ? u * 2 : 2 - u * 2;
     const pressed = this.inp.swing || this.swingQueue.length > 0;
@@ -622,14 +658,14 @@ export class GameScene extends Phaser.Scene {
       const off = Math.abs(this.meterPos - 0.5);
       const ps = this.pitcherStats(this.pitcher.def);
       const type = this.plan!.type;
-      if (pressed && off < 0.1) {
+      if (pressed && off < this.meterSuper) {
         this.pitchBonus = 'super';
         this.plan = planPitch(ps, 1.1, 0.92, 0, type);
         this.popup('SUPER LANCER !', '#7dff7a', 56);
         this.pitcher.rig.flareEars(0.8);
         this.pitcher.rig.wag(1);
         Sound.play('select');
-      } else if (pressed && off < 0.24) {
+      } else if (pressed && off < this.meterGood) {
         this.pitchBonus = 'good';
         this.plan = planPitch(ps, 1.04, 0.8, 0.03, type);
         this.popup('BON LANCER', '#ffe14d', 44);
@@ -1696,9 +1732,9 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0xff5d5d, 1);
     g.fillRoundedRect(x, y, w, h, 12);
     g.fillStyle(0xffe14d, 1);
-    g.fillRect(x + w * 0.26, y, w * 0.48, h);
+    g.fillRect(x + w * (0.5 - this.meterGood), y, w * this.meterGood * 2, h);
     g.fillStyle(0x7dff7a, 1);
-    g.fillRect(x + w * 0.4, y, w * 0.2, h);
+    g.fillRect(x + w * (0.5 - this.meterSuper), y, w * this.meterSuper * 2, h);
     g.lineStyle(5, 0x111111, 1);
     g.strokeRoundedRect(x, y, w, h, 12);
     const nx = x + this.meterPos * w;

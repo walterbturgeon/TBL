@@ -64,10 +64,12 @@ export class OptionsScene extends Phaser.Scene {
       },
       { label: () => `PLEIN ÉCRAN   ${this.scale.isFullscreen ? 'OUI' : 'NON'}`, act: () => toggleFullscreen(this) },
       {
-        label: () => `DIFFICULTÉ   ◀ ${DIFFICULTY[st().difficulty].label} ▶`,
+        // Progressive (monte avec le temps de jeu), puis les difficultés fixes
+        label: () => `DIFFICULTÉ   ◀ ${st().progressive ? 'Progressive' : DIFFICULTY[st().difficulty].label} ▶`,
         act: (d) => {
-          const i = DIFFS.indexOf(st().difficulty);
-          Save.updateSettings({ difficulty: DIFFS[(i + (d === 0 ? 1 : d) + 3) % 3] });
+          const i = st().progressive ? 0 : 1 + DIFFS.indexOf(st().difficulty);
+          const j = (i + (d === 0 ? 1 : d) + 4) % 4;
+          Save.updateSettings(j === 0 ? { progressive: true } : { progressive: false, difficulty: DIFFS[j - 1] });
         },
       },
       {

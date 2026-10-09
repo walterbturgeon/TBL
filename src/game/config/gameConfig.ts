@@ -127,6 +127,40 @@ export const DIFFICULTY: Record<Difficulty, DifficultySettings> = {
   },
 };
 
+/** Niveaux de la difficulté progressive au-delà de « Difficile » (voir systems/Progress.ts). */
+export const DIFFICULTY_PLUS: Record<'veryHard' | 'impossible', DifficultySettings> = {
+  veryHard: {
+    label: 'Très dur',
+    pitchSpeedMul: 1.05,
+    timingWindowMul: 0.8,
+    aiTimingSd: 50,
+    aiWhiff: 0.08,
+    aiSwingStrike: 0.85,
+    aiSwingBall: 0.16,
+    aiPowerMul: 1.12,
+    aiReaction: 0.15,
+    aiFielderSpeedMul: 1.12,
+    aiRunnerMargin: 0.22,
+    assist: 0.4,
+    aiStrikeChance: 0.64,
+  },
+  impossible: {
+    label: 'Impossible',
+    pitchSpeedMul: 1.22,
+    timingWindowMul: 0.6,
+    aiTimingSd: 32,
+    aiWhiff: 0.03,
+    aiSwingStrike: 0.9,
+    aiSwingBall: 0.1,
+    aiPowerMul: 1.25,
+    aiReaction: 0.08,
+    aiFielderSpeedMul: 1.22,
+    aiRunnerMargin: 0.15,
+    assist: 0.2,
+    aiStrikeChance: 0.6,
+  },
+};
+
 export const RULES = {
   innings: 3, // durée par défaut (changeable dans les options : 1, 3, 6, 9)
   strikesForOut: 3,

@@ -12,6 +12,7 @@ export interface Settings {
   sfxVolume: number; // 0..10
   muted: boolean;
   difficulty: Difficulty;
+  progressive: boolean; // la difficulté monte avec le temps de jeu (sinon : difficulté fixe)
   innings: number;
   timingAid: boolean;
   opponent: string;
@@ -57,6 +58,7 @@ const DEFAULT_SETTINGS: Settings = {
   sfxVolume: 7,
   muted: false,
   difficulty: 'normal',
+  progressive: true,
   innings: RULES.innings,
   timingAid: true,
   opponent: 'visiteur',

@@ -8,6 +8,7 @@ import { SONGS, ROUNDS, chartOf, sectionAt, type Lane, type Note } from '../danc
 import { StageRenderer, teamGlow } from '../dance/StageRenderer';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Save } from '../systems/Save';
+import { Progress, atLevel } from '../systems/Progress';
 import { button, cartoonText, onTvBack, panel, toggleFullscreen, type MenuButton } from '../ui/ui';
 import { bakeTexture, bakedImage } from '../util/bake';
 import { isTouch } from '../util/device';
@@ -67,7 +68,12 @@ export class DanceScene extends Phaser.Scene {
   private sprites = new Map<Note, Phaser.GameObjects.Image>();
   private crews: Record<Side, Dancer[]> = { me: [], ai: [] };
   private crewRound = 0;
-  private diff: 'easy' | 'normal' | 'hard' = 'normal';
+  // difficulté du round en cours (fixe ou progressive)
+  private scroll = 1.65;
+  private win = { perfect: 60, great: 105, good: 150 };
+  private aiOdds = [0.28, 0.32, 0.18];
+  private sessionStart = 0; // temps de jeu (s) au début de la chanson
+  private levelIdx = -1;
   private touch = false;
 
   // pointage
@@ -117,7 +123,8 @@ export class DanceScene extends Phaser.Scene {
     this.sprites = new Map();
     this.crews = { me: [], ai: [] };
     this.crewRound = 0;
-    this.diff = s.difficulty;
+    this.applyLevel(Progress.level('dance'));
+    this.levelIdx = Progress.stage('dance').index;
     this.touch = isTouch();
     this.pauseBox = null;
     this.buttons = [];
@@ -398,8 +405,9 @@ export class DanceScene extends Phaser.Scene {
       this.ui.add(box);
       this.cards.push({ box, x, y, w: W, h: H });
     });
-    const diffLabel = this.diff === 'easy' ? 'Facile' : this.diff === 'hard' ? 'Difficile' : 'Normal';
-    this.ui.add(cartoonText(this, 960, 900, `Difficulté : ${diffLabel}  (dans les OPTIONS)`, 24, '#c9d4ff').setOrigin(0.5));
+    const st = Progress.stage('dance');
+    const lvl = Progress.on ? `${st.text}   ·   la difficulté monte à chaque chanson` : `Difficulté : ${st.name}  (dans les OPTIONS)`;
+    this.ui.add(cartoonText(this, 960, 900, lvl, 24, st.color).setOrigin(0.5));
     const go = button(this, 960, 975, 'DANSER !', 380, 84, () => this.startBattle());
     go.setSelected(true);
     this.ui.add(go.c);
@@ -444,13 +452,20 @@ export class DanceScene extends Phaser.Scene {
     this.refreshHud();
     for (const im of this.sprites.values()) im.destroy();
     this.sprites.clear();
-    const song = SONGS[this.songIdx];
-    this.notes = chartOf(song, this.diff);
+    // la chanson va plus vite aux niveaux très durs ; chaque round a la chorégraphie de son niveau
+    this.sessionStart = Progress.seconds('dance');
+    const d0 = Progress.levelAt(this.sessionStart);
+    const base = SONGS[this.songIdx];
+    const song = { ...base, bpm: Math.round(base.bpm * atLevel(d0, DANCE.tempo)) };
+    this.player = new BeatPlayer(song);
+    const p = this.player;
+    const roundAt = (r: number) => p.sections.find((x) => x.kind === 'round' && x.round === r)!.startBar * 4 * p.spb;
+    this.notes = chartOf(song, (r) => Progress.levelAt(this.sessionStart + roundAt(r)));
+    this.applyLevel(d0);
     this.head = 0;
     this.setCrews(0, true);
     this.highway.setVisible(true);
     this.pads.setVisible(true);
-    this.player = new BeatPlayer(song);
     this.player.start(0, 0.35);
     this.phase = 'play';
     this.paused = false;
@@ -476,6 +491,7 @@ export class DanceScene extends Phaser.Scene {
 
     if (this.phase === 'pick' && p && t > this.roundStart(0) + 8 * 4 * p.spb) p.start(this.roundStart(0)); // aperçu en boucle
     if (playing && p) {
+      Progress.add('dance', dt);
       this.onBeats(beat);
       this.onSections(beat);
       this.updateNotes(t);
@@ -514,8 +530,14 @@ export class DanceScene extends Phaser.Scene {
     if (prevSec && prevSec.kind === 'round') this.endRound(prevSec.round);
     if (sec.kind === 'round') {
       this.roundScore = { me: 0, ai: 0 };
-      this.roundTxt.setText(`ROUND ${sec.round + 1} / ${ROUNDS}`);
-      this.banner(`ROUND ${sec.round + 1}`, sec.round === ROUNDS - 1 ? 'Dernier round !' : '', '#ffd23f', 1.1);
+      // niveau du round (la vitesse des flèches change seulement entre deux rounds)
+      this.applyLevel(Progress.level('dance'));
+      const st = Progress.stage('dance');
+      const up = Progress.on && st.index > this.levelIdx;
+      this.levelIdx = st.index;
+      this.roundTxt.setText(`ROUND ${sec.round + 1} / ${ROUNDS}${Progress.on ? `   ·   ${st.text}` : ''}`);
+      const sub = up ? `${st.text} !` : sec.round === ROUNDS - 1 ? 'Dernier round !' : '';
+      this.banner(`ROUND ${sec.round + 1}`, sub, '#ffd23f', up ? 1.8 : 1.1);
       this.stage.pulse(0.3);
     }
   }
@@ -534,8 +556,8 @@ export class DanceScene extends Phaser.Scene {
   }
 
   private updateNotes(t: number) {
-    const scroll = DANCE.scroll[this.diff];
-    const miss = DANCE.windows.good / 1000;
+    const scroll = this.scroll;
+    const miss = this.win.good / 1000;
     // avance le début de la liste
     while (this.head < this.notes.length && this.notes[this.head].done && this.notes[this.head].aiDone) this.head++;
     for (let i = this.head; i < this.notes.length; i++) {
@@ -565,7 +587,7 @@ export class DanceScene extends Phaser.Scene {
   }
 
   private updateAi(t: number) {
-    const odds = DANCE.ai[this.diff];
+    const odds = this.aiOdds;
     for (let i = this.head; i < this.notes.length; i++) {
       const n = this.notes[i];
       if (n.time > t) break;
@@ -592,7 +614,7 @@ export class DanceScene extends Phaser.Scene {
     const p = this.player;
     if (!p || this.phase !== 'play' || this.paused) return;
     const t = p.timeAt(stampMs);
-    const win = DANCE.windows.good / 1000;
+    const win = this.win.good / 1000;
     let best: Note | null = null;
     for (let i = this.head; i < this.notes.length; i++) {
       const n = this.notes[i];
@@ -609,7 +631,7 @@ export class DanceScene extends Phaser.Scene {
     }
     best.done = true;
     const ms = Math.abs(best.time - t) * 1000;
-    const W = DANCE.windows;
+    const W = this.win;
     const g: Grade = ms <= W.perfect ? 'perfect' : ms <= W.great ? 'great' : 'good';
     const im = this.sprites.get(best);
     if (im) {
@@ -714,19 +736,39 @@ export class DanceScene extends Phaser.Scene {
       this.ui.add(cartoonText(this, x, 470, l, 26, col).setOrigin(0.5));
       this.ui.add(cartoonText(this, x, 520, String(v), 44, '#ffffff').setOrigin(0.5));
     });
-    this.ui.add(cartoonText(this, 960, 610, `Meilleur combo : ${this.bestCombo}`, 30, '#c9d4ff').setOrigin(0.5));
+    const sec = Math.floor(Progress.seconds('dance'));
+    const st = Progress.stage('dance');
+    const time = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    this.ui.add(cartoonText(this, 960, 600, `Meilleur combo : ${this.bestCombo}`, 28, '#c9d4ff').setOrigin(0.5));
+    if (Progress.on) this.ui.add(cartoonText(this, 960, 640, `Temps de danse : ${time}   ·   ${st.text}`, 26, st.color).setOrigin(0.5));
+    // SUIVANTE : la chanson d'après, un peu plus difficile (la session continue)
     const labels: [string, () => void][] = [
+      ['SUIVANTE', () => this.nextSong()],
       ['REJOUER', () => this.startBattle()],
       ['MUSIQUE', () => this.showPick()],
       ['MENU', () => this.leave()],
     ];
     this.buttons = labels.map(([l, fn], i) => {
-      const b = button(this, 660 + i * 300, 700, l, 260, 76, fn);
+      const b = button(this, 960 + (i - 1.5) * 245, 715, l, 225, 72, fn);
       this.ui.add(b.c);
       return b;
     });
     this.sel = 0;
     this.buttons.forEach((b, k) => b.setSelected(k === 0));
+  }
+
+  private nextSong() {
+    this.songIdx = (this.songIdx + 1) % SONGS.length;
+    Save.updateSettings({ danceSong: SONGS[this.songIdx].id });
+    this.stage.setColor(SONGS[this.songIdx].color);
+    this.startBattle();
+  }
+
+  /** Réglages selon le niveau D : vitesse des flèches, fenêtres de timing, force de l'ordinateur. */
+  private applyLevel(d: number) {
+    this.scroll = atLevel(d, DANCE.scroll);
+    this.win = { perfect: atLevel(d, DANCE.windows.perfect), great: atLevel(d, DANCE.windows.great), good: atLevel(d, DANCE.windows.good) };
+    this.aiOdds = [atLevel(d, DANCE.ai.perfect), atLevel(d, DANCE.ai.great), atLevel(d, DANCE.ai.good)];
   }
 
   // ================================================================ commandes

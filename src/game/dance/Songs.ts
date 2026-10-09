@@ -263,7 +263,62 @@ const HARD: Pattern[] = [
     [3, 2],
   ],
 ];
+// très dur et impossible : croches partout et doubles-croches
+const INSANE: Pattern[] = [
+  ...HARD.slice(-4),
+  [
+    [0, 0],
+    [0.5, 3],
+    [1, 0],
+    [1.5, 3],
+    [2, 1],
+    [2.5, 2],
+    [3, 1],
+    [3.5, 2],
+  ],
+  [
+    [0, 2],
+    [0.25, 2],
+    [0.5, 1],
+    [1, 0],
+    [1.5, 3],
+    [2, 0],
+    [2.25, 0],
+    [2.5, 3],
+    [3, 2],
+    [3.5, 1],
+  ],
+  [
+    [0, 0],
+    [0.5, 1],
+    [1, 2],
+    [1.5, 3],
+    [2, 3],
+    [2.5, 2],
+    [3, 1],
+    [3.5, 0],
+  ],
+  [
+    [0, 1],
+    [0.5, 1],
+    [0.75, 2],
+    [1, 3],
+    [2, 0],
+    [2.5, 1],
+    [2.75, 2],
+    [3, 3],
+    [3.5, 0],
+  ],
+];
 const FINALE: Pattern = [[0, 2]]; // dernière mesure d'un round : un grand saut
+
+/** Pas selon le niveau D (0 facile, 0.5 normal, 1 difficile, 2 très dur, 3 impossible). */
+function libFor(d: number): { lib: Pattern[]; key: number } {
+  if (d < 0.25) return { lib: EASY, key: 1 };
+  if (d < 0.75) return { lib: NORMAL, key: 2 };
+  if (d < 1.5) return { lib: HARD, key: 3 };
+  return { lib: INSANE, key: 4 };
+}
 
 /** Générateur aléatoire avec graine : la même chanson donne toujours la même chorégraphie. */
 function seeded(seed: number) {
@@ -277,16 +332,17 @@ function seeded(seed: number) {
   };
 }
 
-export function chartOf(song: Song, difficulty: 'easy' | 'normal' | 'hard'): Note[] {
-  const lib = difficulty === 'easy' ? EASY : difficulty === 'hard' ? HARD : NORMAL;
-  let seed = difficulty.length * 7919;
-  for (const ch of song.id) seed = seed * 31 + ch.charCodeAt(0);
-  const rnd = seeded(seed);
+/** Chorégraphie d'une chanson. levelOf(round) = niveau D de chaque round (il peut monter d'un round à l'autre). */
+export function chartOf(song: Song, levelOf: (round: number) => number): Note[] {
   const spb = 60 / song.bpm;
   const notes: Note[] = [];
   const { sections } = layoutOf(song);
   for (const sec of sections) {
     if (sec.kind !== 'round') continue;
+    const { lib, key } = libFor(levelOf(sec.round));
+    let seed = key * 7919 + sec.round * 104729;
+    for (const ch of song.id) seed = seed * 31 + ch.charCodeAt(0);
+    const rnd = seeded(seed);
     let prev = -1;
     for (let b = 0; b < sec.bars; b++) {
       const last = b === sec.bars - 1;

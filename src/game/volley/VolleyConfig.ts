@@ -36,10 +36,13 @@ export const VRULES = {
   cap: 30, // au plus tard, le set finit à ce pointage
 };
 
-/** Aide à l'équipe du joueur quand l'ordinateur smashe vers elle (le plaisir d'abord). */
+/**
+ * Aide à l'équipe du joueur quand l'ordinateur smashe vers elle (le plaisir d'abord).
+ * Avec la difficulté progressive, l'aide diminue après le niveau « normal » et disparaît
+ * au niveau « impossible » (voir applyLevel dans VolleyScene.ts).
+ */
 export const VDIG_HELP = {
   spikeSpeedMul: 0.8, // smash de l'ordinateur 20 % moins rapide
-  aimTries: { Facile: 3, Normal: 4, Difficile: 8 } as Record<string, number>, // endroits essayés par l'ordinateur (16 = visée parfaite)
   contactZ: 1.25, // hauteur (m) du moment idéal de la manchette ; 0.9 pour l'ordinateur
   rush: 1.2, // la joueuse court 20 % plus vite vers la balle
   reaction: 0.08, // temps de réaction (s) ; 0.15 pour l'ordinateur

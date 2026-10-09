@@ -115,6 +115,8 @@ export class HudScene extends Phaser.Scene {
       T('pitch', 1920 - 22, 172, '', 22, '#7fd3ff', 1);
     }
     T('hint', 960, 1040, '', 24, '#ffffff', 0.5);
+    // niveau de difficulté (sous le panneau de droite)
+    T('level', 1920 - 26, this.mode === 'volley' ? 146 : 204, '', 22, '#7dff7a', 1);
     T('mute', 1900, 1040, '', 18, '#ffffff', 1);
     T('timing', 960, 800, '', 44, '#7dff7a', 0.5);
     T('sprintLbl', 960 - 150 - 100, 982, 'SPRINT', 18, '#ffd23f');
@@ -142,6 +144,9 @@ export class HudScene extends Phaser.Scene {
       this.comic(tokens.join(' '), bottom, 0xe3262e, 0xffd23f, '#e3262e');
     });
     on('hud-pause', () => this.openPause());
+    on('hud-level', (p: { text: string; color: string }) => {
+      this.t.level.setText(p.text).setColor(p.color);
+    });
     this.events.once('shutdown', () => {
       for (const [ev, fn] of this.handlers) this.game.events.off(ev, fn, this);
       this.handlers = [];

@@ -4,6 +4,7 @@ import { positionsOf, rosterOf, sportTeam, stat, teamsFor, type Sport, type Team
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
+import { Progress } from '../systems/Progress';
 import { button, cartoonText, onTvBack, panel, statBar, toggleFullscreen, type MenuButton } from '../ui/ui';
 import { hex } from '../util/math';
 
@@ -51,6 +52,8 @@ export class TeamSelectScene extends Phaser.Scene {
 
   create(data?: { sport?: Sport }) {
     this.sport = data?.sport ?? 'baseball';
+    // nouvelle session : la difficulté progressive repart du niveau 1
+    Progress.reset(this.sport);
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
     // chaque sport garde ses propres choix (au volleyball : les Nomads au lieu des Baddies)

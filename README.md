@@ -20,6 +20,23 @@ Les coureuses courent seules. En défensive, la joueuse la plus proche court seu
 
 Touches avancées (désactivées par défaut) : voir `CONTROLS` dans `src/game/config/gameConfig.ts`.
 
+## Difficulté progressive (les 3 sports)
+
+Par défaut, la difficulté monte avec le temps de jeu :
+
+| Temps de jeu | Niveau |
+|---|---|
+| 0 à 3 min | Niveau 1 · Facile |
+| 3 à 7 min | Niveau 2 · Difficile (complètement difficile à 7 min) |
+| 7 à 11 min | Niveau 3 · Très dur (complètement très dur à 11 min) |
+| 11 min et plus | Niveau 4 · Impossible (au maximum à 15 min) |
+
+- Le temps compte seulement pendant le jeu. Il continue avec REJOUER et avec la chanson SUIVANTE (danse).
+- Le temps repart à zéro quand tu reviens au choix des équipes.
+- Le niveau est sous le panneau de droite (baseball, volleyball) ou en haut de la piste (danse).
+- Pour une difficulté fixe : OPTIONS > DIFFICULTÉ (Facile, Normal ou Difficile).
+- Réglages : `src/game/systems/Progress.ts`.
+
 ## Volleyball
 
 Dans le menu, choisis **VOLLEYBALL**. Au volleyball, **les Nomads** remplacent les Baddies. Les autres équipes jouent aussi, à 6 contre 6, sans Billy ni Stella.
