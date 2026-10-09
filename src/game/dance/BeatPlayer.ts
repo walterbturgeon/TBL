@@ -209,12 +209,12 @@ export class BeatPlayer {
         if (on(hat, i) && (drums || sec.kind === 'intro')) {
           const c = hat[i];
           const n = c === 'r' ? 2 : c === 't' ? 3 : c === 'R' ? 4 : 1;
-          if (n === 1) push((w) => this.hat(w, i % 4 === 0 ? 0.2 : 0.13, c === 'o'));
+          if (n === 1) push((w) => this.hat(w, i % 4 === 0 ? 0.14 : 0.09, c === 'o'));
           // roulement de charleston (trap) : plusieurs petits coups dans le même pas
           else
             for (let k = 0; k < n; k++) {
               const tk = t + (k * step) / n;
-              ev.push({ t: tk, play: (w) => this.hat(w, 0.09 + 0.03 * (k / n), false) });
+              ev.push({ t: tk, play: (w) => this.hat(w, 0.065 + 0.02 * (k / n), false) });
             }
         }
         if ((full || (sec.kind === 'intro' && inSec === 1)) && on(s.bass, i)) {
@@ -363,7 +363,7 @@ export class BeatPlayer {
     f.type = 'highpass';
     f.frequency.value = 5000;
     n.connect(f);
-    f.connect(this.gainEnv(w, v * 0.5, 0.002, 1.4));
+    f.connect(this.gainEnv(w, v * 0.3, 0.002, 1.1));
   }
 
   private bass(w: number, midi: number, dur: number, v: number, slideFrom = 0) {
@@ -655,7 +655,7 @@ export class BeatPlayer {
     f.frequency.exponentialRampToValueAtTime(7000, w + dur);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, w);
-    g.gain.exponentialRampToValueAtTime(0.25, w + dur);
+    g.gain.exponentialRampToValueAtTime(0.14, w + dur);
     g.gain.exponentialRampToValueAtTime(0.0001, w + dur + 0.05);
     n.connect(f);
     f.connect(g);

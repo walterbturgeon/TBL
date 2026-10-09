@@ -77,6 +77,7 @@ class SoundEngine {
       const d = this.noise.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.applyVolumes();
+      Stadium.attach(this.ctx);
     }
     if (this.ctx.state !== 'running' && !this.background) {
       void this.ctx.resume();
@@ -406,14 +407,25 @@ class SoundEngine {
       const src = this.ctx.createBufferSource();
       src.buffer = this.noise;
       src.loop = true;
+      // murmur de foule : bande grave (pas de sifflement aigu), volume discret qui ondule doucement
       const f = this.ctx.createBiquadFilter();
       f.type = 'bandpass';
-      f.frequency.value = 650;
-      f.Q.value = 0.5;
+      f.frequency.value = 480;
+      f.Q.value = 0.8;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1100;
       const g = this.ctx.createGain();
-      g.gain.value = 0.025;
-      src.connect(f).connect(g).connect(this.sfx);
+      g.gain.value = 0.009;
+      const lfo = this.ctx.createOscillator();
+      const lg = this.ctx.createGain();
+      lfo.frequency.value = 0.13;
+      lg.gain.value = 0.003;
+      lfo.connect(lg).connect(g.gain);
+      lfo.start();
+      src.connect(f).connect(lp).connect(g).connect(this.sfx);
       src.start();
+      src.addEventListener('ended', () => lfo.stop());
       this.crowdNode = { src, gain: g };
     } else if (!on && this.crowdNode) {
       this.crowdNode.src.stop();
@@ -534,7 +546,7 @@ class SoundEngine {
       if (s === 4 || s === 12) this.burst(t, 0.09, 0.13, 'bandpass', 1900, 0.8, undefined, this.music);
       if (s === 14 || s === 15) this.burst(t, 0.04, 0.04, 'bandpass', 2100, 0.9, undefined, this.music);
       // cymbale au début de chaque phrase
-      if (s === 0 && bar % 4 === 0) this.burst(t, 1.2, 0.05, 'highpass', 6000, 0.6, undefined, this.music);
+      if (s === 0 && bar % 4 === 0) this.burst(t, 0.9, 0.025, 'highpass', 7000, 0.6, undefined, this.music);
       this.nextNoteTime += spb;
       this.step++;
     }

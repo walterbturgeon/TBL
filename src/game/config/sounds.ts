@@ -69,7 +69,7 @@ export const STADIUM_CLIPS: Record<ClipId, ClipConfig> = {
   ambience: {
     url: FS + '424/424295_3609277-hq.mp3',
     kind: 'sfx',
-    vol: 0.3,
+    vol: 0.18, // fond discret : la foule ne doit pas devenir un souffle
     loop: true,
     credit: 'Ambiance de foule, Fenway Park (Douglas711) — CC0',
     source: 'https://freesound.org/people/Douglas711/sounds/424295/',

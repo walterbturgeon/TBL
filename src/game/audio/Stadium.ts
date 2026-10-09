@@ -16,6 +16,8 @@ class StadiumAudio {
   private onFail = new Map<ClipId, () => void>();
   enabled = true;
   private started = false;
+  // iPhone : el.volume ne marche pas ; chaque son passe par un réglage de volume Web Audio
+  private gains = new Map<ClipId, GainNode>();
 
   /** Prépare les éléments audio (sans les jouer). */
   init(enabled: boolean) {
@@ -25,6 +27,8 @@ class StadiumAudio {
     for (const id of Object.keys(STADIUM_CLIPS) as ClipId[]) {
       const c = STADIUM_CLIPS[id];
       const el = new Audio();
+      // les sites des sons (Freesound, Wikimedia) le permettent : nécessaire pour régler le volume par Web Audio
+      el.crossOrigin = 'anonymous';
       // sur une télé, un son se charge seulement quand le jeu en a besoin
       el.preload = LOW ? 'none' : 'auto';
       el.loop = !!c.loop;
@@ -58,13 +62,46 @@ class StadiumAudio {
     }
   }
 
+  /** Branche chaque son sur Web Audio : le volume marche partout, et le son s'arrête avec le jeu en arrière-plan. */
+  attach(ctx: AudioContext) {
+    if (this.gains.size) return;
+    for (const [id, el] of this.els) {
+      try {
+        const src = ctx.createMediaElementSource(el);
+        const g = ctx.createGain();
+        g.gain.value = el.paused ? 0 : el.volume;
+        src.connect(g);
+        g.connect(ctx.destination);
+        this.gains.set(id, g);
+        el.volume = 1;
+      } catch {
+        /* ce son garde le volume de l'élément audio */
+      }
+    }
+  }
+
+  /** Volume d'un son (par Web Audio si possible). */
+  private setVol(id: ClipId, v: number) {
+    const g = this.gains.get(id);
+    if (g) g.gain.value = v;
+    else {
+      const el = this.els.get(id);
+      if (el) el.volume = v;
+    }
+  }
+
+  private getVol(id: ClipId) {
+    const g = this.gains.get(id);
+    return g ? g.gain.value : (this.els.get(id)?.volume ?? 0);
+  }
+
   failed(id: ClipId) {
     return !this.enabled || this.bad.has(id) || !this.els.has(id);
   }
 
   setVolumes(music: number, sfx: number, muted: boolean) {
     this.vol = { music, sfx, muted };
-    for (const [id, el] of this.els) if (!el.paused) el.volume = this.level(id, this.target.get(id) ?? 1);
+    for (const [id, el] of this.els) if (!el.paused) this.setVol(id, this.level(id, this.target.get(id) ?? 1));
   }
 
   private level(id: ClipId, rel: number) {
@@ -88,7 +125,7 @@ class StadiumAudio {
       /* pas encore chargé : le son part du début */
     }
     el.muted = false;
-    el.volume = this.level(id, rel);
+    this.setVol(id, this.level(id, rel));
     el.play().catch(() => undefined);
     const dur = opts.dur ?? c.dur;
     if (dur && !c.loop) this.stopTimers.set(id, window.setTimeout(() => this.stop(id, 0.7), dur * 1000));
@@ -107,7 +144,7 @@ class StadiumAudio {
     this.target.set(id, 1);
     el.loop = true;
     el.muted = false;
-    el.volume = this.level(id, 1);
+    this.setVol(id, this.level(id, 1));
     if (el.paused) el.play().catch(() => undefined);
     return true;
   }
@@ -123,11 +160,11 @@ class StadiumAudio {
       el.pause();
       return;
     }
-    const start = el.volume;
+    const start = this.getVol(id);
     const t0 = performance.now();
     const h = window.setInterval(() => {
       const u = Math.min(1, (performance.now() - t0) / (fade * 1000));
-      el.volume = start * (1 - u);
+      this.setVol(id, start * (1 - u));
       if (u >= 1) {
         window.clearInterval(h);
         this.fadeTimers.delete(id);
