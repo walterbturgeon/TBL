@@ -7,7 +7,7 @@ import { Stadium } from '../audio/Stadium';
 import { Save } from '../systems/Save';
 import { Controls } from '../input/Controls';
 import { CourtRenderer } from '../volley/CourtRenderer';
-import { COURT, ROT_SPOTS, VPHYS, VRULES, VTIMING, VVIEW, vMoveSpeed } from '../volley/VolleyConfig';
+import { COURT, ROT_SPOTS, VDIG_HELP, VPHYS, VRULES, VTIMING, VVIEW, vMoveSpeed } from '../volley/VolleyConfig';
 import { vproject } from '../volley/VolleyProjection';
 import { bakeTexture, bakedImage } from '../util/bake';
 import { chance, clamp, dist, gauss, rand } from '../util/math';
@@ -32,6 +32,8 @@ class VPlayer {
   tx: number;
   ty: number;
   speed: number;
+  /** multiplicateur de vitesse pendant une course vers la balle (1 = normal) */
+  rush = 1;
   private lastSx = 0;
   private lastSy = 0;
 
@@ -56,7 +58,7 @@ class VPlayer {
     const dx = this.tx - this.x;
     const dy = this.ty - this.y;
     const d = Math.hypot(dx, dy);
-    const st = this.speed * mul * dt;
+    const st = this.speed * this.rush * mul * dt;
     if (d <= st) {
       this.x = this.tx;
       this.y = this.ty;
@@ -122,6 +124,7 @@ interface Pending {
   at: { x: number; y: number; z: number };
   dive: boolean;
   incoming: number; // difficulté de la balle reçue (0 à 1)
+  smash?: boolean; // la balle reçue vient d'un smash
 }
 
 export class VolleyScene extends Phaser.Scene {
@@ -526,8 +529,10 @@ export class VolleyScene extends Phaser.Scene {
             this.hud('hud-timing', { text: 'TROP TÔT', color: '#ff9f43' });
           }
         }
-        if (this.pending === pd && this.gameTime > pd.time + win) {
-          // sans appui : une touche faible automatique
+        // sans appui : une touche faible automatique, au plus tard juste avant que la balle touche le sol
+        const b = this.ball;
+        const landsNow = b.vz < 0 && b.z + b.vz * dt * 1.5 <= 0.05;
+        if (this.pending === pd && (this.gameTime > pd.time + win || landsNow)) {
           this.resolve(pd, null);
         }
       } else if (this.gameTime >= pd.time) {
@@ -599,9 +604,10 @@ export class VolleyScene extends Phaser.Scene {
   }
 
   /** Qui va chercher la balle qui arrive dans le demi-terrain de side ? */
-  private planReceive(side: Side, incoming: number) {
+  private planReceive(side: Side, incoming: number, smash = false) {
     if (this.phase !== 'rally' || !this.ball.live) return;
-    const tc = this.timeToZ(0.9);
+    // l'équipe du joueur touche la balle plus haut : un appui un peu en retard arrive encore avant le sol
+    const tc = this.timeToZ(side.human ? VDIG_HELP.contactZ : 0.9);
     if (tc === null) return;
     const p = this.posAt(tc);
     if (p.x * side.dir < 0.2) return; // pas encore de ce côté
@@ -610,28 +616,33 @@ export class VolleyScene extends Phaser.Scene {
     const land = this.posAt(tl);
     const out = Math.abs(land.x) > COURT.half + 0.3 || land.y < -0.3 || land.y > COURT.width + 0.3;
     if (out) return;
+    // l'équipe du joueur a de l'aide : réaction, course et plongeon
+    const help = side.human;
+    const rush = help ? VDIG_HELP.rush : 1;
+    for (const pl of side.court) pl.rush = 1;
     let best: VPlayer | null = null;
     let bestNeed = Infinity;
     for (const pl of side.court) {
       if (pl === side.lastToucher) continue;
-      const need = dist(pl.x, pl.y, p.x, p.y) / pl.speed + 0.15;
+      const need = dist(pl.x, pl.y, p.x, p.y) / (pl.speed * rush) + (help ? VDIG_HELP.reaction : 0.15);
       if (need < bestNeed) {
         bestNeed = need;
         best = pl;
       }
     }
     if (!best) return;
+    best.rush = rush;
     let dive = false;
     if (bestNeed > tc + 0.05) {
       // plongeon : un peu plus de portée
-      if (dist(best.x, best.y, p.x, p.y) - 1.8 <= best.speed * tc) dive = true;
+      if (dist(best.x, best.y, p.x, p.y) - (help ? VDIG_HELP.diveReach : 1.8) <= best.speed * rush * tc) dive = true;
       else {
         best.setTarget(p.x, p.y);
         return; // trop loin : la balle va tomber
       }
     }
     best.setTarget(p.x - side.dir * 0.15, p.y);
-    this.pending = { kind: 'receive', side, player: best, time: this.gameTime + tc, at: p, dive, incoming };
+    this.pending = { kind: 'receive', side, player: best, time: this.gameTime + tc, at: p, dive, incoming, smash };
   }
 
   private timingLabel(deltaMs: number) {
@@ -666,12 +677,13 @@ export class VolleyScene extends Phaser.Scene {
       pl.y = this.ball.y;
       pl.setTarget(pl.x, pl.y);
     }
+    pl.rush = 1;
     let q: number;
     if (side.human) {
-      q = humanQ ?? 0.32;
+      q = humanQ ?? VDIG_HELP.autoQ * rand(0.7, 1.2);
       q *= 1 - pd.incoming * 0.1;
     } else q = this.aiQuality(pl, pd.kind, pd.incoming);
-    if (pd.dive) q *= 0.75;
+    if (pd.dive) q *= side.human ? VDIG_HELP.diveMul : 0.75;
     side.touches++;
     side.lastToucher = pl;
     this.lastSide = side;
@@ -685,7 +697,10 @@ export class VolleyScene extends Phaser.Scene {
       this.line(pl.def).digs++;
       this.attackInfo = null;
       const noPress = side.human && humanQ === null;
-      if (q < 0.25 && chance(noPress ? 0.55 : 0.4)) {
+      const weakMiss = q < 0.25 ? (noPress ? VDIG_HELP.autoMiss : 0.4) : 0;
+      // sans appui, un smash est souvent raté : la touche reste utile
+      const smashMiss = noPress && pd.smash ? VDIG_HELP.smashAutoMiss : 0;
+      if (chance(Math.max(weakMiss, smashMiss))) {
         // manchette ratée : la balle part hors du terrain
         this.hud('hud-popup', { text: 'OUPS !', color: '#ff9f43', size: 48 });
         this.launch(side.dir * rand(9.6, 11), rand(-1.5, COURT.width + 1.5), 0, 1.0);
@@ -780,9 +795,11 @@ export class VolleyScene extends Phaser.Scene {
     }
     // cible : un endroit libre dans le camp adverse
     const aimY = this.controls.isDown('up') ? 1 : this.controls.isDown('down') ? -1 : 0;
+    // contre l'équipe du joueur, l'ordinateur essaie moins d'endroits : il vise moins bien
+    const tries = O.human ? VDIG_HELP.aimTries[this.diff.label] ?? 4 : 16;
     let best = { x: O.dir * 5, y: 4.5 };
     let bestScore = -Infinity;
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < tries; i++) {
       const c = { x: O.dir * rand(2.2, 8.4), y: rand(0.6, COURT.width - 0.6) };
       let m = Infinity;
       for (const p of O.court) if (!bl || p !== bl.player) m = Math.min(m, dist(p.x, p.y, c.x, c.y));
@@ -792,7 +809,7 @@ export class VolleyScene extends Phaser.Scene {
         best = c;
       }
     }
-    const v = (12.5 + stat.power(attacker.def) * 1.1) * (0.5 + 0.5 * q);
+    const v = (12.5 + stat.power(attacker.def) * 1.1) * (0.5 + 0.5 * q) * (O.human ? VDIG_HELP.spikeSpeedMul : 1);
     let T = Math.max(0.35, dist(b.x, b.y, best.x, best.y) / v);
     // la balle doit passer au-dessus du filet
     for (let i = 0; i < 12; i++) {
@@ -805,7 +822,7 @@ export class VolleyScene extends Phaser.Scene {
     this.launch(best.x, best.y, 0, T);
     this.attackInfo = { side, player: attacker, q };
     if (q > 0.85) this.court.cheer(0.25);
-    this.at(0.03, () => this.planReceive(O, q));
+    this.at(0.03, () => this.planReceive(O, q, true));
   }
 
   // ================================================================ points
@@ -813,6 +830,7 @@ export class VolleyScene extends Phaser.Scene {
     if (this.phase !== 'rally') return;
     this.pending = null;
     this.block = null;
+    for (const p of [...this.L.court, ...this.R.court]) p.rush = 1;
     winner.score++;
     Sound.play('whistle');
     const human = winner.human;

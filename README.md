@@ -27,6 +27,7 @@ Dans le menu, choisis **VOLLEYBALL**. Les mêmes équipes jouent à 6 contre 6, 
 - **Service :** ESPACE ou OK quand l'aiguille est dans le vert.
 - **Manchette, passe, smash :** ESPACE ou OK quand la balle arrive dans l'anneau. Les FLÈCHES ↑ ↓ visent le smash.
 - **Bloc :** ESPACE ou OK au moment du smash adverse.
+- Sans appui, la joueuse touche quand même la balle, mais elle rate souvent un smash. L'aide en défense est dans `VDIG_HELP`.
 - Les joueuses se placent toutes seules. Les remplaçantes entrent à tour de rôle au service.
 - Points par set (15, 21, 25) et nombre de sets (1 ou 3) : dans les OPTIONS.
 - Réglages : `src/game/volley/VolleyConfig.ts`.

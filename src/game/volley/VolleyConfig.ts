@@ -36,6 +36,20 @@ export const VRULES = {
   cap: 30, // au plus tard, le set finit à ce pointage
 };
 
+/** Aide à l'équipe du joueur quand l'ordinateur smashe vers elle (le plaisir d'abord). */
+export const VDIG_HELP = {
+  spikeSpeedMul: 0.8, // smash de l'ordinateur 20 % moins rapide
+  aimTries: { Facile: 3, Normal: 4, Difficile: 8 } as Record<string, number>, // endroits essayés par l'ordinateur (16 = visée parfaite)
+  contactZ: 1.25, // hauteur (m) du moment idéal de la manchette ; 0.9 pour l'ordinateur
+  rush: 1.2, // la joueuse court 20 % plus vite vers la balle
+  reaction: 0.08, // temps de réaction (s) ; 0.15 pour l'ordinateur
+  diveReach: 2.6, // portée du plongeon (m) ; 1.8 pour l'ordinateur
+  diveMul: 0.85, // qualité d'une manchette en plongeon ; 0.75 pour l'ordinateur
+  autoQ: 0.36, // qualité moyenne d'une touche automatique (sans appui)
+  autoMiss: 0.4, // risque de rater une manchette automatique faible
+  smashAutoMiss: 0.5, // risque de rater un smash sans appui
+};
+
 /** Vitesse de déplacement (m/s) selon la vitesse sur 10. */
 export const vMoveSpeed = (speed: number) => 3.4 + speed * 0.3;
 
