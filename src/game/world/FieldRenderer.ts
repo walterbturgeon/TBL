@@ -367,7 +367,7 @@ export class FieldRenderer {
     const B: [number, number, number, number] = [-10, -20, 10, 9];
     const VARIANTS = 24;
     for (let i = 0; i < VARIANTS; i++) {
-      bakeTexture(this.scene, 'fan_' + home.id + '_' + i, B, 2, (gg) => {
+      bakeTexture(this.scene, 'fan_' + home.id + '_' + away.id + '_' + i, B, 2, (gg) => {
         gg.fillStyle(shirts[i % shirts.length], 1);
         gg.fillRoundedRect(-7, -6, 14, 12, 4);
         gg.lineStyle(2, OUT, 1);
@@ -385,7 +385,7 @@ export class FieldRenderer {
       if (LOW && Math.random() < 0.7) return;
       const s = project(p.x, p.y);
       const sc = 0.75 * s.s + 0.2;
-      const img = bakedImage(this.scene, 'fan_' + home.id + '_' + Math.floor(Math.random() * VARIANTS), B, 2, s.x, s.y);
+      const img = bakedImage(this.scene, 'fan_' + home.id + '_' + away.id + '_' + Math.floor(Math.random() * VARIANTS), B, 2, s.x, s.y);
       img.setScale(sc / 2);
       img.setDepth(s.y - 3000);
       this.fans.push({ g: img, baseY: s.y });

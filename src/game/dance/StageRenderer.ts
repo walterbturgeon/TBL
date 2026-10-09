@@ -174,7 +174,7 @@ export class StageRenderer {
     const B: [number, number, number, number] = [-12, -22, 12, 12];
     const V = 10;
     for (let i = 0; i < V; i++) {
-      bakeTexture(this.scene, 'dfan_' + i, B, 2, (g) => {
+      bakeTexture(this.scene, 'dfan_' + left.id + '_' + right.id + '_' + i, B, 2, (g) => {
         g.fillStyle(0x0c0818, 1);
         g.fillRoundedRect(-9, -6, 18, 18, 5);
         g.fillCircle(0, -12, 8);
@@ -195,7 +195,7 @@ export class StageRenderer {
       const y = 450 + row * 30;
       for (let x = 130 + row * 13; x < 1790; x += rand(30, 46)) {
         if (LOW && Math.random() < 0.5) continue;
-        const img = bakedImage(this.scene, 'dfan_' + Math.floor(Math.random() * V), B, 2, x, y);
+        const img = bakedImage(this.scene, 'dfan_' + left.id + '_' + right.id + '_' + Math.floor(Math.random() * V), B, 2, x, y);
         img.setScale((1.7 + row * 0.25) / 2).setDepth(-800 + row);
         this.crowd.push({ img, baseY: y, ph: Math.random() < 0.5 ? 0 : 0.5 });
       }

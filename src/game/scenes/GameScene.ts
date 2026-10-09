@@ -177,6 +177,11 @@ export class GameScene extends Phaser.Scene {
     this.levelT = 0;
     this.applyLevel();
     this.innings = s.innings;
+    // compte remis à zéro tout de suite (sinon le tableau montre la fin de la partie précédente)
+    this.outs = 0;
+    this.balls = 0;
+    this.strikes = 0;
+    this.runsHalf = 0;
     this.winAI = windowsFor(1, TIMING_AI);
     this.stats = new GameStats();
     this.runners = [];
@@ -495,7 +500,13 @@ export class GameScene extends Phaser.Scene {
     if (this.isWalkoff()) return this.gameOver();
     const limit = RULES.runLimitPerHalf > 0 && this.runsHalf >= RULES.runLimitPerHalf;
     if (this.outs >= RULES.outsPerHalf || limit) {
-      if (limit && this.outs < RULES.outsPerHalf) this.popup('LIMITE DE POINTS !', '#ffffff', 50, `${RULES.runLimitPerHalf} points maximum par demi-manche`);
+      if (limit && this.outs < RULES.outsPerHalf) {
+        // un circuit compte au complet, même au-delà de la limite
+        const sub = this.runsHalf > RULES.runLimitPerHalf ? 'Le circuit compte au complet !' : `${RULES.runLimitPerHalf} points maximum par demi-manche`;
+        this.popup('LIMITE DE POINTS !', '#ffffff', 50, sub);
+      }
+      // la frappeuse qui a fini son tour au bâton ne recommence pas la prochaine demi-manche
+      if (this.deadNext === 'batter') this.offense.idx++;
       return this.endHalf();
     }
     if (this.deadNext === 'batter') this.nextBatter();
@@ -646,6 +657,7 @@ export class GameScene extends Phaser.Scene {
       if (this.levelIdx >= 0 && st.index > this.levelIdx) this.popup(`NIVEAU ${st.index + 1} : ${st.name.toUpperCase()} !`, st.color, 58);
       this.levelIdx = st.index;
     }
+    this.registry.set('hudLevel', { text: st.text, color: st.color });
     this.hud('hud-level', { text: st.text, color: st.color });
   }
 
@@ -1162,6 +1174,14 @@ export class GameScene extends Phaser.Scene {
       const tRun = rr.timeTo(rr.target);
       if (tRun + 0.3 > eta) rr.target = rr.startBase;
     }
+    // de la première coureuse à la dernière : chacune s'arrête avant le but visé par celle de devant
+    // (plusieurs coureuses peuvent marquer, mais deux ne peuvent pas finir sur le même but)
+    const order = this.runners.filter((r) => !r.out && !r.scored).sort((a, b) => b.d - a.d);
+    let ahead = 5;
+    for (const r of order) {
+      if (r.target < 4 && r.target >= ahead) r.target = Math.max(r.lastBase, ahead - 1);
+      ahead = r.target;
+    }
   }
 
   private recomputeChase() {
@@ -1267,7 +1287,8 @@ export class GameScene extends Phaser.Scene {
       r.target = r.startBase;
       r.manual = false;
     }
-    if (br) this.makeOut(br, f, false);
+    // 3e retrait sur un ballon attrapé : les points du jeu ne comptent pas (comme un retrait forcé)
+    if (br) this.makeOut(br, f, true);
   }
 
   private checkOuts(h: Fielder) {
@@ -1573,6 +1594,12 @@ export class GameScene extends Phaser.Scene {
   private endPlay() {
     if (this.phase !== 'live') return;
     this.deadNext = 'batter';
+    // les coureuses encore en route s'arrêtent au dernier but touché : aucun point ne peut
+    // être marqué après le 3e retrait, après la limite de points ou après la victoire
+    for (const r of this.runners) {
+      if (r.out || r.scored || r.settled) continue;
+      if (r.target > r.lastBase) r.target = r.isBatter && r.lastBase < 1 ? 1 : r.lastBase;
+    }
     const br = this.batterRunner;
     if (br && !br.out && this.fair !== 'foul') {
       const bases = br.scored ? 4 : br.lastBase;

@@ -27,6 +27,7 @@ export class MenuScene extends Phaser.Scene {
   private dancers: CartoonRig[] = [];
   private actT = 0;
   private danceT = 0;
+  private leaving = false; // déjà en route vers un autre écran
   private clock = 0;
   // ballon de volleyball qui passe d'une joueuse à l'autre
   private vball!: Phaser.GameObjects.Image;
@@ -38,6 +39,7 @@ export class MenuScene extends Phaser.Scene {
     DancePreview.stop(); // la musique de danse reste dans les écrans de la danse
     this.rigs = []; // les personnages du menu précédent sont détruits
     this.buttons = [];
+    this.leaving = false;
     this.volley = [];
     this.dancers = [];
     this.clock = 0;
@@ -231,6 +233,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private go(key: string, data?: object) {
+    if (this.leaving) return;
+    this.leaving = true;
     this.input.keyboard!.removeAllListeners();
     this.cameras.main.fadeOut(220, 15, 26, 61);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(key, data));

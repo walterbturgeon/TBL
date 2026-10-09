@@ -117,6 +117,9 @@ export class HudScene extends Phaser.Scene {
     T('hint', 960, 1040, '', 24, '#ffffff', 0.5);
     // niveau de difficulté (sous le panneau de droite)
     T('level', 1920 - 26, this.mode === 'volley' ? 146 : 204, '', 22, '#7dff7a', 1);
+    // niveau déjà connu (la partie l'envoie avant que le tableau s'ouvre)
+    const lv = this.registry.get('hudLevel') as { text: string; color: string } | undefined;
+    if (lv) this.t.level.setText(lv.text).setColor(lv.color);
     T('mute', 1900, 1040, '', 18, '#ffffff', 1);
     T('timing', 960, 800, '', 44, '#7dff7a', 0.5);
     T('sprintLbl', 960 - 150 - 100, 982, 'SPRINT', 18, '#ffd23f');

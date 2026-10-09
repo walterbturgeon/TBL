@@ -16,6 +16,7 @@ class StadiumAudio {
   private onFail = new Map<ClipId, () => void>();
   enabled = true;
   private started = false;
+  private unlockedOk = false; // un son a vraiment joué pendant un geste (iPhone)
   // iPhone : el.volume ne marche pas ; chaque son passe par un réglage de volume Web Audio
   private gains = new Map<ClipId, GainNode>();
 
@@ -43,7 +44,11 @@ class StadiumAudio {
     }
   }
 
-  /** Au premier geste : « débloque » chaque son (nécessaire sur iPhone). */
+  get isUnlocked() {
+    return this.unlockedOk;
+  }
+
+  /** Pendant un geste : « débloque » chaque son (nécessaire sur iPhone), jusqu'à ce que ça marche. */
   unlock() {
     for (const el of this.els.values()) {
       if (!el.paused) continue;
@@ -51,6 +56,7 @@ class StadiumAudio {
       const p = el.play();
       if (p)
         p.then(() => {
+          this.unlockedOk = true;
           // si le jeu a demandé ce son entre-temps (muted remis à false), on le laisse jouer
           if (!el.muted) return;
           el.pause();
@@ -101,7 +107,8 @@ class StadiumAudio {
 
   setVolumes(music: number, sfx: number, muted: boolean) {
     this.vol = { music, sfx, muted };
-    for (const [id, el] of this.els) if (!el.paused) this.setVol(id, this.level(id, this.target.get(id) ?? 1));
+    // (un son en train de baisser garde son fondu)
+    for (const [id, el] of this.els) if (!el.paused && !this.fadeTimers.has(id)) this.setVol(id, this.level(id, this.target.get(id) ?? 1));
   }
 
   private level(id: ClipId, rel: number) {
@@ -185,8 +192,10 @@ class StadiumAudio {
     this.held = [];
     for (const [id, el] of this.els) {
       if (el.paused) continue;
+      // un son en train de s'arrêter (fondu) ne reprendra pas au retour
+      const fading = this.fadeTimers.has(id);
       this.clearTimers(id);
-      if (el.loop && !el.muted) this.held.push(id);
+      if (el.loop && !el.muted && !fading) this.held.push(id);
       el.pause();
     }
   }

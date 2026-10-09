@@ -213,6 +213,7 @@ export class VolleyScene extends Phaser.Scene {
     this.lastSide = null;
     this.attackInfo = null;
     this.serveInfo = null;
+    this.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, live: false };
     this.touch = isTouch();
 
     // au volleyball : équipes à part (les Nomads au lieu des Baddies)
@@ -538,6 +539,8 @@ export class VolleyScene extends Phaser.Scene {
     this.lastSide = S;
     S.touches = 1;
     S.lastToucher = server;
+    O.touches = 0;
+    O.lastToucher = null;
     this.ball.z = 2.7;
     // faute de service (rare) : dans le filet
     const faultChance = S.human ? (q < 0.5 ? 0.25 : 0.02) : 0.05;
@@ -564,6 +567,12 @@ export class VolleyScene extends Phaser.Scene {
     this.stepBall(dt, true);
     if (this.phase !== 'rally') return;
 
+    // bloc de l'équipe du joueur : on garde le dernier appui avant le smash
+    // (lu avant le smash : un appui pile au moment du smash compte)
+    if (this.block && this.block.side.human) {
+      for (const t of this.presses) if (t <= this.block.time + 0.05) this.block.press = t;
+    }
+
     // contact prévu
     const pd = this.pending;
     if (pd) {
@@ -571,6 +580,11 @@ export class VolleyScene extends Phaser.Scene {
         const win = this.vt.ok / 1000;
         for (const t of this.presses) {
           const delta = (t - pd.time) * 1000;
+          if (pd.kind === 'receive' && this.ball.x * pd.side.dir <= 0) {
+            // la balle n'a pas encore passé le filet : trop tôt
+            this.hud('hud-timing', { text: 'TROP TÔT', color: '#ff9f43' });
+            continue;
+          }
           if (Math.abs(delta) <= this.vt.ok) {
             this.hud('hud-timing', { text: this.timingLabel(delta), color: Math.abs(delta) <= this.vt.perfect ? '#7dff7a' : '#ffe14d' });
             this.resolve(pd, this.timingQuality(delta));
@@ -588,10 +602,6 @@ export class VolleyScene extends Phaser.Scene {
       } else if (this.gameTime >= pd.time) {
         this.resolve(pd, null);
       }
-    }
-    // bloc de l'équipe du joueur : on garde le dernier appui avant le smash
-    if (this.block && this.block.side.human) {
-      for (const t of this.presses) if (t <= this.block.time + 0.05) this.block.press = t;
     }
   }
 
@@ -682,6 +692,7 @@ export class VolleyScene extends Phaser.Scene {
       if (this.levelIdx >= 0 && st.index > this.levelIdx) this.hud('hud-popup', { text: `NIVEAU ${st.index + 1} : ${st.name.toUpperCase()} !`, color: st.color, size: 58 });
       this.levelIdx = st.index;
     }
+    this.registry.set('hudLevel', { text: st.text, color: st.color });
     this.hud('hud-level', { text: st.text, color: st.color });
   }
 
@@ -791,6 +802,8 @@ export class VolleyScene extends Phaser.Scene {
       if (q < 0.32 && chance(0.5)) {
         // la balle repasse directement de l'autre côté
         const O = this.other(side);
+        O.touches = 0;
+        O.lastToucher = null;
         const fx = O.dir * rand(2.5, 7.5);
         this.launch(fx, rand(1, 8), 0, this.clearNet(fx, 0, 1.6, 0.4));
         this.at(0.05, () => this.planReceive(O, 0.2));
@@ -844,6 +857,9 @@ export class VolleyScene extends Phaser.Scene {
 
   private doAttack(side: Side, attacker: VPlayer, q0: number) {
     const O = this.other(side);
+    // l'équipe qui reçoit le smash repart à zéro touche
+    O.touches = 0;
+    O.lastToucher = null;
     const q = q0 * (0.6 + 0.4 * this.setQ);
     const b = this.ball;
     // bloc ?
@@ -855,7 +871,8 @@ export class VolleyScene extends Phaser.Scene {
         if (bl.press === null) chanceBlock = 0.1;
         else {
           const d = Math.abs(bl.press - bl.time) * 1000;
-          chanceBlock = d <= this.vt.perfect ? 0.42 : d <= this.vt.good ? 0.3 : d <= this.vt.ok ? 0.18 : 0.06;
+          // un appui beaucoup trop tôt vaut autant que pas d'appui (pas moins)
+          chanceBlock = d <= this.vt.perfect ? 0.42 : d <= this.vt.good ? 0.3 : d <= this.vt.ok ? 0.18 : 0.1;
         }
       } else {
         const adj = atLevel(this.D, [-0.05, 0, 0.05, 0.1, 0.16]);

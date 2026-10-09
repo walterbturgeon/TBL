@@ -35,6 +35,7 @@ export class TeamSelectScene extends Phaser.Scene {
   private cardRigs: CartoonRig[][] = [];
   private nextBtn: MenuButton | null = null;
   private sport: Sport = 'baseball';
+  private leaving = false; // déjà en route vers la partie ou le menu
 
   private teams() {
     return teamsFor(this.sport);
@@ -55,6 +56,7 @@ export class TeamSelectScene extends Phaser.Scene {
 
   create(data?: { sport?: Sport }) {
     this.sport = data?.sport ?? 'baseball';
+    this.leaving = false;
     // nouvelle session : la difficulté progressive repart du niveau 1
     Progress.reset(this.sport);
     // la musique de baseball joue seulement pour le baseball ; à la danse, la seule musique est la chanson choisie
@@ -111,6 +113,7 @@ export class TeamSelectScene extends Phaser.Scene {
   }
 
   private next() {
+    if (this.leaving) return;
     Sound.play('select');
     if (this.step === 'mine') {
       this.mine = this.list[this.sel];
@@ -126,8 +129,10 @@ export class TeamSelectScene extends Phaser.Scene {
   }
 
   private back() {
+    if (this.leaving) return;
     Sound.play('select');
     if (this.step === 'mine') {
+      this.leaving = true;
       this.input.keyboard!.removeAllListeners();
       this.scene.start('Menu');
     } else if (this.step === 'mineRoster') this.show('mine');
@@ -136,6 +141,8 @@ export class TeamSelectScene extends Phaser.Scene {
   }
 
   private start() {
+    if (this.leaving) return;
+    this.leaving = true;
     this.input.keyboard!.removeAllListeners();
     this.cameras.main.fadeOut(220, 15, 26, 61);
     const next = this.sport === 'volley' ? 'Volley' : this.sport === 'dance' ? 'Dance' : 'Game';
@@ -192,7 +199,8 @@ export class TeamSelectScene extends Phaser.Scene {
         : this.sport === 'dance'
           ? 'Battle en 3 rounds'
           : `${s.innings} manche${s.innings > 1 ? 's' : ''}`;
-    this.add2(cartoonText(this, 960, 900, `Difficulté : ${DIFFICULTY[s.difficulty].label}   ·   ${format}`, 26, '#c9d4ff').setOrigin(0.5));
+    const diffTxt = s.progressive ? 'Progressive (monte avec le temps de jeu)' : DIFFICULTY[s.difficulty].label;
+    this.add2(cartoonText(this, 960, 900, `Difficulté : ${diffTxt}   ·   ${format}`, 26, '#c9d4ff').setOrigin(0.5));
     this.add2(cartoonText(this, 960, 1010, '← → choisir   ·   ESPACE ou OK : voir les joueurs   ·   ÉCHAP : retour', 24, '#ffffff').setOrigin(0.5));
     this.sel = -1;
     this.select(Math.max(0, this.list.findIndex((t) => t.id === current.id)));

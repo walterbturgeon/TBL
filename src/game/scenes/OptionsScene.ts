@@ -26,7 +26,7 @@ export class OptionsScene extends Phaser.Scene {
   private controlsPanel: Phaser.GameObjects.Container | null = null;
   private confirmReset = false;
   private startQuality = Save.settings.quality;
-  private reloadTimer: Phaser.Time.TimerEvent | null = null;
+  private reloadTimer: number | null = null;
 
   create() {
     this.cameras.main.fadeIn(250, 15, 26, 61);
@@ -102,10 +102,11 @@ export class OptionsScene extends Phaser.Scene {
           const i = list.indexOf(st().quality);
           Save.updateSettings({ quality: list[(i + (d === 0 ? 1 : d) + 3) % 3] });
           // le changement demande de recharger la page
-          if (this.reloadTimer) this.reloadTimer.remove();
-          this.reloadTimer = this.time.delayedCall(1400, () => {
+          // minuterie de la page (pas de la scène) : le rechargement se fait même si on quitte les OPTIONS
+          if (this.reloadTimer !== null) window.clearTimeout(this.reloadTimer);
+          this.reloadTimer = window.setTimeout(() => {
             if (Save.settings.quality !== this.startQuality) location.reload();
-          });
+          }, 1400);
         },
       },
       {
@@ -116,6 +117,9 @@ export class OptionsScene extends Phaser.Scene {
           if (on) {
             Stadium.init(true);
             Stadium.enabled = true;
+            // les nouveaux sons passent par Web Audio (volume sur iPhone) et sont débloqués par ce toucher
+            if (Sound.ctx) Stadium.attach(Sound.ctx);
+            Stadium.unlock();
             Sound.menuMusic();
           } else {
             Stadium.stopAll(0.3);

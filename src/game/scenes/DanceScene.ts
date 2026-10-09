@@ -88,7 +88,9 @@ export class DanceScene extends Phaser.Scene {
 
   // pointage
   private score: Record<Side, number> = { me: 0, ai: 0 };
-  private roundScore: Record<Side, number> = { me: 0, ai: 0 };
+  // points de chaque round (selon le round de la flèche, pas selon le moment de l'appui)
+  private roundPts: Record<Side, number[]> = { me: [0, 0, 0], ai: [0, 0, 0] };
+  private curRound = 0;
   private rounds: Record<Side, number> = { me: 0, ai: 0 };
   private combo = 0;
   private aiCombo = 0;
@@ -97,15 +99,16 @@ export class DanceScene extends Phaser.Scene {
   private leadBusy: Record<Side, number> = { me: -1, ai: -1 };
   private crewBusy: Record<Side, number> = { me: -1, ai: -1 };
   private songT = 0;
+  private animT = 0; // horloge des animations : elle s'arrête pendant la pause
   // danseuse qui fait le mouvement spécial : projecteur, lignes de vitesse, poussière, flash
-  private special: { rig: CartoonRig; expr: Expression; puffT: number; flashed: boolean } | null = null;
+  private specials: Record<Side, { rig: CartoonRig; expr: Expression; puffT: number; flashed: boolean } | null> = { me: null, ai: null };
   private fxG!: Phaser.GameObjects.Graphics;
-  private spotImg!: Phaser.GameObjects.Image;
+  private spotImgs: Record<Side, Phaser.GameObjects.Image> = {} as never;
   private bestCombo = 0;
   private counts: Record<Grade, number> = { perfect: 0, great: 0, good: 0, miss: 0 };
   private meter = 0.5;
   private sectionIdx = -1;
-  private lastBeat = -99;
+  private lastBeat = -99; // plus haut temps déjà traité (le décompte ne repart pas après une pause)
   private energy = 0;
 
   // affichage
@@ -171,10 +174,13 @@ export class DanceScene extends Phaser.Scene {
     Stadium.stopAll(0.3);
 
     this.stage = new StageRenderer(this, this.mine, this.opp);
-    this.special = null;
+    this.specials = { me: null, ai: null };
     this.fxG = this.add.graphics().setDepth(1500);
-    this.spotImg = bakedImage(this, 'dance_spot', [-300, -80, 300, 80], 0.5, 0, 0).setTint(0xffffff).setAlpha(0).setDepth(700);
-    this.spotImg.setBlendMode(Phaser.BlendModes.ADD).setScale(2 * 0.42);
+    for (const side of ['me', 'ai'] as const) {
+      const img = bakedImage(this, 'dance_spot', [-300, -80, 300, 80], 0.5, 0, 0).setTint(0xffffff).setAlpha(0).setDepth(700);
+      img.setBlendMode(Phaser.BlendModes.ADD).setScale(2 * 0.42);
+      this.spotImgs[side] = img;
+    }
     bakeTexture(this, 'dance_puff', [-12, -12, 12, 12], 2, (g) => {
       g.fillStyle(0xd8d0e8, 0.9);
       g.fillCircle(0, 0, 10);
@@ -194,7 +200,10 @@ export class DanceScene extends Phaser.Scene {
     const extra = 4 - this.input.manager.pointersTotal;
     if (extra > 0) this.input.addPointer(extra);
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => this.onKey(e));
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointer(p));
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over && over.length) return; // le bouton touché s'en occupe
+      this.onPointer(p);
+    });
     onTvBack(this, () => this.back());
     document.addEventListener('visibilitychange', this.onVis);
     // arrière-plan (autre application, écran verrouillé) : pause
@@ -213,7 +222,8 @@ export class DanceScene extends Phaser.Scene {
 
   private resetScores() {
     this.score = { me: 0, ai: 0 };
-    this.roundScore = { me: 0, ai: 0 };
+    this.roundPts = { me: [0, 0, 0], ai: [0, 0, 0] };
+    this.curRound = 0;
     this.rounds = { me: 0, ai: 0 };
     this.combo = 0;
     this.aiCombo = 0;
@@ -437,35 +447,41 @@ export class DanceScene extends Phaser.Scene {
     const spb = this.player?.spb ?? 0.5;
     const dur = clamp(spb * 0.85, 0.3, 0.55);
     for (const d of this.crews[side]) {
-      if (d.front ? this.songT < this.leadBusy[side] : this.songT < this.crewBusy[side]) continue;
+      if (d.front ? this.animT < this.leadBusy[side] : this.animT < this.crewBusy[side]) continue;
       d.rig.play(MOVES[lane], dur);
     }
   }
 
   private crewStumble(side: Side) {
-    if (this.songT < this.leadBusy[side]) return;
+    if (this.animT < this.leadBusy[side]) return;
     const lead = this.crews[side].find((d) => d.front);
     lead?.rig.play('flinch', 0.4);
   }
 
   /** Effets du mouvement spécial (seulement autour de la danseuse qui le fait). */
   private updateSpecial(dt: number) {
+    if (this.paused) return; // pendant la pause : tout reste figé
+    this.fxG.clear();
+    for (const side of ['me', 'ai'] as const) this.updateSpecialOf(side, dt);
+  }
+
+  private updateSpecialOf(side: Side, dt: number) {
     const g = this.fxG;
-    g.clear();
-    const sp = this.special;
+    const sp = this.specials[side];
+    const spot = this.spotImgs[side];
     const a = sp && !!sp.rig.scene ? sp.rig.act : null;
     if (!sp || !a || !(BREAKS as readonly string[]).includes(a.name)) {
       if (sp && !!sp.rig.scene) sp.rig.setExpression(sp.expr);
-      this.special = null;
-      this.spotImg.setAlpha(0);
+      this.specials[side] = null;
+      spot.setAlpha(0);
       return;
     }
     const p = a.p;
     const k = sp.rig.scaleX * (sp.rig.facing || 1); // échelle de la danseuse
     const x = sp.rig.x;
     const y = sp.rig.y;
-    this.spotImg.setPosition(x, y).setAlpha(0.75 * Math.min(1, p * 8, (1 - p) * 8));
-    const t = this.time.now / 1000;
+    spot.setPosition(x, y).setAlpha(0.75 * Math.min(1, p * 8, (1 - p) * 8));
+    const t = this.animT;
     // lignes de vitesse : 3 arcs qui tournent autour d'un point
     const arcs = (cx: number, cy: number, rx: number, ry: number, ph: number, alpha: number) => {
       for (let i = 0; i < 3; i++) {
@@ -518,8 +534,13 @@ export class DanceScene extends Phaser.Scene {
       this.perfectRun[side] = 0;
       return false;
     }
+    if (this.animT < this.leadBusy[side]) {
+      // la meneuse est encore dans son mouvement : il faudra 3 nouveaux PARFAIT
+      this.perfectRun[side] = 0;
+      return false;
+    }
     this.perfectRun[side]++;
-    if (this.perfectRun[side] < BREAK_STREAK || this.songT < this.leadBusy[side]) return false;
+    if (this.perfectRun[side] < BREAK_STREAK) return false;
     this.perfectRun[side] = 0;
     return true;
   }
@@ -532,8 +553,9 @@ export class DanceScene extends Phaser.Scene {
     if (lead) {
       lead.rig.play(BREAKS[lane], dur);
       // visage concentré pendant le mouvement ; effets autour d'elle
-      if (this.special && !!this.special.rig.scene) this.special.rig.setExpression(this.special.expr);
-      this.special = { rig: lead.rig, expr: lead.rig.expression, puffT: 0, flashed: false };
+      const old = this.specials[side];
+      if (old && !!old.rig.scene) old.rig.setExpression(old.expr);
+      this.specials[side] = { rig: lead.rig, expr: lead.rig.expression, puffT: 0, flashed: false };
       lead.rig.setExpression('determined');
       // la meneuse grandit un peu pendant son mouvement : on la remarque
       // (la taille de départ est la vraie taille, même si la danseuse vient d'apparaître sur scène)
@@ -542,8 +564,8 @@ export class DanceScene extends Phaser.Scene {
       lead.rig.setScale(base);
       this.tweens.add({ targets: lead.rig, scale: base * 1.15, duration: 180, yoyo: true, hold: dur * 1000 - 360, ease: 'Back.Out' });
     }
-    this.leadBusy[side] = this.songT + dur;
-    this.crewBusy[side] = this.songT + 0.9;
+    this.leadBusy[side] = this.animT + dur;
+    this.crewBusy[side] = this.animT + 0.9;
     this.crews[side].forEach((d, i) => {
       if (d.front) return;
       d.rig.play('celebrate', 0.9);
@@ -621,11 +643,6 @@ export class DanceScene extends Phaser.Scene {
     this.player = DancePreview.player;
   }
 
-  private roundStart(r: number) {
-    const p = this.player ?? new BeatPlayer(SONGS[this.songIdx]);
-    const sec = p.sections.find((s) => s.kind === 'round' && s.round === r)!;
-    return sec.startBar * 4 * p.spb;
-  }
 
   // ================================================================ battle
   private startBattle() {
@@ -639,6 +656,7 @@ export class DanceScene extends Phaser.Scene {
     this.refreshHud();
     for (const im of this.sprites.values()) im.destroy();
     this.sprites.clear();
+    this.roundTxt.setText('BATTLE DE DANSE');
     // la chanson va plus vite aux niveaux très durs ; chaque round a la chorégraphie de son niveau
     this.sessionStart = Progress.seconds('dance');
     const d0 = Progress.levelAt(this.sessionStart);
@@ -666,6 +684,7 @@ export class DanceScene extends Phaser.Scene {
     const beat = p ? t / p.spb : this.time.now / 600;
     const playing = this.phase === 'play' && !this.paused;
     this.songT = t;
+    if (!this.paused) this.animT += dt;
 
     // les danseuses bougent au rythme
     for (const side of ['me', 'ai'] as const)
@@ -687,17 +706,17 @@ export class DanceScene extends Phaser.Scene {
       this.updateHints(t);
       if (t > p.length + 0.4) this.showResults();
     }
-    this.meter += ((this.roundScore.me + 300) / (this.roundScore.me + this.roundScore.ai + 600) - this.meter) * Math.min(1, dt * 5);
+    const rMe = this.roundPts.me[this.curRound] ?? 0;
+    const rAi = this.roundPts.ai[this.curRound] ?? 0;
+    this.meter += ((rMe + 300) / (rMe + rAi + 600) - this.meter) * Math.min(1, dt * 5);
     this.drawMeter();
   }
 
   /** Événements à chaque temps : décompte du début. */
   private onBeats(beat: number) {
     const b = Math.floor(beat);
-    if (b === this.lastBeat) return;
-    const prev = this.lastBeat;
+    if (b <= this.lastBeat) return; // déjà traité (reprise après une pause : on ne rejoue rien)
     this.lastBeat = b;
-    if (b < prev) return; // reprise après une pause : on ne rejoue pas les événements
     const words: Record<number, string> = { 4: '3', 5: '2', 6: '1', 7: 'DANSEZ !' };
     if (words[b]) this.banner(words[b], '', b === 7 ? '#7dff7a' : '#ffffff', 0.5);
   }
@@ -718,7 +737,7 @@ export class DanceScene extends Phaser.Scene {
     this.sectionIdx = idx;
     if (prevSec && prevSec.kind === 'round') this.endRound(prevSec.round);
     if (sec.kind === 'round') {
-      this.roundScore = { me: 0, ai: 0 };
+      this.curRound = sec.round;
       // niveau du round (la vitesse des flèches change seulement entre deux rounds)
       this.applyLevel(Progress.level('dance'));
       const st = Progress.stage('dance');
@@ -732,7 +751,7 @@ export class DanceScene extends Phaser.Scene {
   }
 
   private endRound(r: number) {
-    const meWin = this.roundScore.me >= this.roundScore.ai; // égalité : ton équipe (le plaisir d'abord)
+    const meWin = this.roundPts.me[r] >= this.roundPts.ai[r]; // égalité : ton équipe (le plaisir d'abord)
     const w: Side = meWin ? 'me' : 'ai';
     this.rounds[w]++;
     this.refreshHud();
@@ -745,28 +764,31 @@ export class DanceScene extends Phaser.Scene {
   }
 
   private updateNotes(t: number) {
-    const scroll = this.scroll;
     const miss = this.win.good / 1000;
     // avance le début de la liste
     while (this.head < this.notes.length && this.notes[this.head].done && this.notes[this.head].aiDone) this.head++;
     for (let i = this.head; i < this.notes.length; i++) {
       const n = this.notes[i];
       const dtn = n.time - t;
-      if (dtn > scroll + 0.1) break;
+      if (dtn > 2.3) break; // au-delà de la plus lente vitesse possible
       if (!n.done && dtn < -miss) {
         // flèche manquée
         n.done = true;
-        this.grade('miss', n.lane);
+        this.grade('miss', n.lane, n.round);
       }
       let im = this.sprites.get(n);
       if (!n.done) {
         if (!im) {
+          if (dtn > this.scroll + 0.1) continue; // pas encore à l'écran
           im = bakedImage(this, 'darrow_' + n.lane, ARROW_B, 2, LANE_X[n.lane], TOP_Y);
           im.rotation = ARROW_ROT[n.lane];
+          // vitesse gardée : un changement de niveau ne fait pas sauter les flèches déjà à l'écran
+          im.setData('scroll', this.scroll);
           this.highway.add(im);
           this.sprites.set(n, im);
         }
-        im.y = TARGET_Y - (dtn / scroll) * (TARGET_Y - TOP_Y);
+        const sc = (im.getData('scroll') as number) || this.scroll;
+        im.y = TARGET_Y - (dtn / sc) * (TARGET_Y - TOP_Y);
         im.setAlpha(im.y < TOP_Y + 40 ? clamp((im.y - TOP_Y + 20) / 60, 0, 1) : 1);
       } else if (im && !im.getData('leaving')) {
         this.sprites.delete(n);
@@ -818,7 +840,7 @@ export class DanceScene extends Phaser.Scene {
         this.aiCombo++;
         const pts = DANCE.points[g] * comboMul(this.aiCombo);
         this.score.ai += pts;
-        this.roundScore.ai += pts;
+        this.roundPts.ai[n.round] += pts;
         if (this.countPerfect('ai', g)) this.breakdance('ai', n.lane);
         else this.crewMove('ai', n.lane);
       }
@@ -841,8 +863,10 @@ export class DanceScene extends Phaser.Scene {
     }
     this.flashLane(lane);
     if (!best) {
-      // appui sans flèche : la danseuse bouge quand même, mais le combo repart à zéro
-      this.crews.me.find((d) => d.front)?.rig.play(MOVES[lane], 0.4);
+      // appui sans flèche : la danseuse bouge quand même (sauf pendant son mouvement spécial),
+      // mais le combo et la série de PARFAIT repartent à zéro
+      if (this.animT >= this.leadBusy.me) this.crews.me.find((d) => d.front)?.rig.play(MOVES[lane], 0.4);
+      this.perfectRun.me = 0;
       if (this.combo > 0) this.comboBreak();
       return;
     }
@@ -857,10 +881,10 @@ export class DanceScene extends Phaser.Scene {
       im.y = TARGET_Y;
       this.tweens.add({ targets: im, scale: im.scale * 1.6, alpha: 0, duration: 160, onComplete: () => im.destroy() });
     }
-    this.grade(g, lane);
+    this.grade(g, lane, best.round);
   }
 
-  private grade(g: Grade, lane: Lane) {
+  private grade(g: Grade, lane: Lane, round: number) {
     this.counts[g]++;
     if (g === 'miss') {
       this.comboBreak();
@@ -871,7 +895,7 @@ export class DanceScene extends Phaser.Scene {
       this.bestCombo = Math.max(this.bestCombo, this.combo);
       const pts = DANCE.points[g] * comboMul(this.combo);
       this.score.me += pts;
-      this.roundScore.me += pts;
+      this.roundPts.me[round] += pts;
       const brk = this.countPerfect('me', g);
       if (brk) this.breakdance('me', lane);
       else this.crewMove('me', lane);

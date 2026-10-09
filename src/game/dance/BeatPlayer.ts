@@ -110,6 +110,7 @@ export class BeatPlayer {
       const at = this.start0 + this.loopShift + e.t;
       if (at >= horizon) break;
       this.idx++;
+      if (at < ctx.currentTime - 0.08) continue; // trop en retard : on le saute
       e.play(Math.max(ctx.currentTime, at));
     }
     this.syncClock();

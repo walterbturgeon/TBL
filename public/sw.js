@@ -6,7 +6,7 @@
  * - Les sons du stade (Freesound, Wikimedia) viennent d'un autre site : ils ont besoin d'Internet.
  *   Sans Internet, le jeu utilise ses sons synthétisés.
  */
-const CACHE = 'turcau-bbl-v27';
+const CACHE = 'turcau-bbl-v28';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -28,6 +28,21 @@ self.addEventListener('install', (event) => {
   );
 });
 
+/** Garde la nouvelle page du jeu, mais seulement après avoir gardé tous les fichiers qu'elle cite. */
+async function keepIndex(res) {
+  try {
+    const html = await res.clone().text();
+    const cache = await caches.open(CACHE);
+    const assets = [...new Set(html.match(/\.\/assets\/[^"'\s)]+/g) || [])];
+    const missing = [];
+    for (const a of assets) if (!(await cache.match(a, { ignoreVary: true }))) missing.push(a);
+    await cache.addAll(missing.map((u) => new Request(u, { cache: 'reload' })));
+    await cache.put('./index.html', res);
+  } catch (e) {
+    /* un fichier manque : on garde l'ancienne page, qui marche hors connexion */
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -44,14 +59,26 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
+    // seulement la page du jeu (pas diag.html) ; les autres pages passent par le réseau
+    const isGame = url.pathname.endsWith('/') || url.pathname.endsWith('/index.html');
+    if (!isGame) return;
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html', { ignoreVary: true })),
+      (async () => {
+        // réseau d'abord, mais pas plus de 4 s : sinon la copie gardée
+        const net = fetch(req);
+        const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+        try {
+          const res = await Promise.race([net, timeout]);
+          if (res && res.ok) {
+            event.waitUntil(keepIndex(res.clone()));
+            return res;
+          }
+        } catch (e) {
+          /* pas de réseau */
+        }
+        const cached = await caches.match('./index.html', { ignoreVary: true });
+        return cached || net;
+      })(),
     );
     return;
   }

@@ -61,7 +61,8 @@ class SoundEngine {
     } catch {
       /* pas d'audioSession : rien à faire */
     }
-    if (!this.ctx) Stadium.unlock();
+    // sur iPhone, un vrai geste est la fin d'un toucher : on réessaie jusqu'à ce que ça marche
+    if (!Stadium.isUnlocked) Stadium.unlock();
     if (!this.ctx) {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AC) return;

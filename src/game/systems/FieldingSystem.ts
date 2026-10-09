@@ -68,7 +68,8 @@ export function assignDefense(fielders: Fielder[], chaser: Fielder | null, ballX
     [4, ['C', 'P']],
   ];
   for (const [base, list] of prefs) {
-    const f = list.map(get).find((x) => !used.has(x));
+    // la défenseure qui tient la balle ne couvre pas : la suivante de la liste vient au but
+    const f = list.map(get).find((x) => !used.has(x) && !x.hasBall);
     if (!f) continue;
     used.add(f);
     if (!f.hasBall) {
