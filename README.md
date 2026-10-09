@@ -1,6 +1,10 @@
-# Turcau Baseball League
+# Turcau Olympic
 
-Jeu de baseball arcade familial (PWA) : les **Baddies**, avec Billy le Goldendoodle au monticule et Stella la Golden Retriever derrière le marbre.
+Jeux arcade pour la famille (PWA), en 3 sports :
+
+- **Baseball** (la Turcau Baseball League) : les **Baddies**, avec Billy le Goldendoodle au monticule et Stella la Golden Retriever derrière le marbre.
+- **Volleyball** : les Nomads.
+- **Danse** : battle de danse avec les K-Units.
 
 Fait avec TypeScript, Vite et Phaser 3. Tous les personnages sont dessinés en vecteurs et tous les sons sont synthétisés : le jeu n'a aucun fichier image ou son à télécharger.
 

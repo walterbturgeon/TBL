@@ -35,26 +35,47 @@ export class MenuScene extends Phaser.Scene {
 
     // logo
     const logo = this.add.container(960, 230);
+    // 5 étoiles de couleur (à la place des 5 anneaux) : 3 en haut, 2 en bas
     const ball = this.add.graphics();
-    ball.fillStyle(0xffffff, 1);
-    ball.fillCircle(0, 0, 150);
-    ball.lineStyle(8, 0x111111, 1);
-    ball.strokeCircle(0, 0, 150);
-    ball.lineStyle(6, 0xd62828, 1);
-    ball.beginPath();
-    ball.arc(-210, 0, 150, -0.75, 0.75);
-    ball.strokePath();
-    ball.beginPath();
-    ball.arc(210, 0, 150, Math.PI - 0.75, Math.PI + 0.75);
-    ball.strokePath();
-    ball.setAlpha(0.95);
+    const star = (cx: number, cy: number, r: number) => {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rr = i % 2 === 0 ? r : r * 0.45;
+        pts.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr });
+      }
+      return pts;
+    };
+    const stars: [number, number, number, number][] = [
+      [-96, -178, 0x1b6fd6, 0x111111],
+      [0, -178, 0x222222, 0xffffff],
+      [96, -178, 0xd62828, 0x111111],
+      [-48, -140, 0xffc93c, 0x111111],
+      [48, -140, 0x2fae4a, 0x111111],
+    ];
+    // fond foncé : cache le tableau du stade derrière les étoiles
+    ball.fillStyle(0x000000, 0.35);
+    ball.fillRoundedRect(-238, -224, 488, 132, 30);
+    ball.fillStyle(0x0f1a3d, 0.95);
+    ball.fillRoundedRect(-244, -230, 488, 132, 30);
+    ball.lineStyle(6, 0x111111, 1);
+    ball.strokeRoundedRect(-244, -230, 488, 132, 30);
+    ball.lineStyle(2, 0xffd23f, 0.8);
+    ball.strokeRoundedRect(-236, -222, 472, 116, 24);
+    for (const [x, y, fill, line] of stars) {
+      const pts = star(x, y, 36);
+      ball.fillStyle(fill, 1);
+      ball.fillPoints(pts, true);
+      ball.lineStyle(7, line, 1);
+      ball.strokePoints(pts, true, true);
+    }
     const t1 = this.add.text(0, -30, 'TURCAU', {
       fontFamily: '"Arial Black", "Segoe UI Black", Impact, sans-serif',
       fontSize: '150px',
       color: '#ffd23f',
     });
     t1.setOrigin(0.5).setStroke('#111111', 22).setShadow(6, 8, '#000000', 0, true, false);
-    const t2 = cartoonText(this, 0, 90, 'BASEBALL LEAGUE', 66, '#ffffff').setOrigin(0.5);
+    const t2 = cartoonText(this, 0, 92, 'OLYMPIC', 80, '#ffffff').setOrigin(0.5);
     t2.setStroke('#1b2a6b', 14);
     logo.add([ball, t1, t2]);
     this.tweens.add({ targets: logo, y: 240, angle: 1.2, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });

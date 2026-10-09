@@ -1,7 +1,7 @@
 {
-  "name": "Turcau Baseball League",
-  "short_name": "Turcau BBL",
-  "description": "Jeu de baseball arcade familial avec Billy le lanceur et Stella la receveuse.",
+  "name": "Turcau Olympic",
+  "short_name": "Turcau",
+  "description": "Baseball, volleyball et danse : jeux arcade pour la famille.",
   "lang": "fr-CA",
   "start_url": "./",
   "scope": "./",

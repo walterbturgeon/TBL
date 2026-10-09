@@ -35,7 +35,7 @@ export class CourtRenderer {
     this.drawNet();
     const font = '"Arial Black", "Segoe UI Black", Impact, sans-serif';
     scene.add
-      .text(960, 70, 'TURCAU BASEBALL LEAGUE  ·  VOLLEYBALL', { fontFamily: font, fontSize: '30px', color: '#ffd23f' })
+      .text(960, 70, 'TURCAU OLYMPIC  ·  VOLLEYBALL', { fontFamily: font, fontSize: '30px', color: '#ffd23f' })
       .setOrigin(0.5)
       .setStroke('#111111', 6)
       .setDepth(-990);

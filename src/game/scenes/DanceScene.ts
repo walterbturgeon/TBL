@@ -109,6 +109,9 @@ export class DanceScene extends Phaser.Scene {
   private highway!: Phaser.GameObjects.Container;
   private pads!: Phaser.GameObjects.Container; // bouton pause et zones de toucher (téléphone)
   private padArrows: Phaser.GameObjects.Image[] = [];
+  // aide des niveaux 1 et 2 : la cible et le bouton de la prochaine flèche s'allument
+  private hintGlows: Phaser.GameObjects.Image[] = [];
+  private padHints: Phaser.GameObjects.Graphics[] = [];
   private pauseBox: Phaser.GameObjects.Container | null = null;
   private buttons: MenuButton[] = [];
   private sel = 0;
@@ -137,6 +140,8 @@ export class DanceScene extends Phaser.Scene {
     this.cards = [];
     this.receptors = [];
     this.padArrows = [];
+    this.hintGlows = [];
+    this.padHints = [];
     this.glows = [];
     this.songIdx = Math.max(0, SONGS.findIndex((x) => x.id === s.danceSong));
     this.resetScores();
@@ -246,11 +251,14 @@ export class DanceScene extends Phaser.Scene {
     g.fillRect(756, TARGET_Y - 48, 408, 96);
     this.highway.add(g);
     for (let i = 0; i < 4; i++) {
+      const hint = bakedImage(this, 'darrow_glow', ARROW_B, 2, LANE_X[i], TARGET_Y).setTint(DANCE.laneColors[i]).setAlpha(0);
+      hint.setBlendMode(Phaser.BlendModes.ADD).setScale(1.35 / 2);
       const glow = bakedImage(this, 'darrow_glow', ARROW_B, 2, LANE_X[i], TARGET_Y).setTint(DANCE.laneColors[i]).setAlpha(0);
       glow.setBlendMode(Phaser.BlendModes.ADD);
       const r = bakedImage(this, 'darrow_target', ARROW_B, 2, LANE_X[i], TARGET_Y);
       r.rotation = ARROW_ROT[i];
-      this.highway.add([glow, r]);
+      this.highway.add([hint, glow, r]);
+      this.hintGlows.push(hint);
       this.glows.push(glow);
       this.receptors.push(r);
     }
@@ -299,11 +307,18 @@ export class DanceScene extends Phaser.Scene {
         pad.fillRoundedRect(x - 230, 976, 460, 100, 22);
         pad.lineStyle(5, c, 1);
         pad.strokeRoundedRect(x - 230, 976, 460, 100, 22);
+        // bouton allumé (aide des niveaux 1 et 2)
+        const hint = this.add.graphics().setAlpha(0);
+        hint.fillStyle(c, 0.75);
+        hint.fillRoundedRect(x - 230, 976, 460, 100, 22);
+        hint.lineStyle(8, 0xffffff, 1);
+        hint.strokeRoundedRect(x - 230, 976, 460, 100, 22);
         const a = bakedImage(this, 'darrow_' + i, ARROW_B, 2, x, 1026);
         a.rotation = ARROW_ROT[i];
         a.setScale(0.5 * 1.05);
-        this.pads.add([pad, a]);
+        this.pads.add([pad, hint, a]);
         this.padArrows.push(a);
+        this.padHints.push(hint);
       });
     }
     this.refreshHud();
@@ -534,6 +549,7 @@ export class DanceScene extends Phaser.Scene {
       this.onSections(beat);
       this.updateNotes(t);
       this.updateAi(t);
+      this.updateHints(t);
       if (t > p.length + 0.4) this.showResults();
     }
     this.meter += ((this.roundScore.me + 300) / (this.roundScore.me + this.roundScore.ai + 600) - this.meter) * Math.min(1, dt * 5);
@@ -621,6 +637,32 @@ export class DanceScene extends Phaser.Scene {
         this.sprites.delete(n);
         im.destroy();
       }
+    }
+  }
+
+  /** Aide aux niveaux 1 et 2 (ou en Facile et Normal) : la cible et le bouton s'allument quand une flèche arrive. */
+  private helpOn() {
+    return Progress.on ? Progress.stage('dance').index <= 1 : Save.settings.difficulty !== 'hard';
+  }
+
+  private updateHints(t: number) {
+    const on = this.helpOn();
+    const lead = 0.6; // s avant la cible : la lumière monte
+    for (let lane = 0; lane < 4; lane++) {
+      let k = 0;
+      if (on)
+        for (let i = this.head; i < this.notes.length; i++) {
+          const n = this.notes[i];
+          const dtn = n.time - t;
+          if (dtn > lead) break;
+          if (n.done || n.lane !== lane) continue;
+          k = Math.max(k, 1 - clamp(dtn / lead, 0, 1));
+        }
+      this.hintGlows[lane]?.setAlpha(k * 0.9);
+      const r = this.receptors[lane];
+      if (k > 0.05) r.setTint(DANCE.laneColors[lane]);
+      else r.clearTint();
+      this.padHints[lane]?.setAlpha(k * 0.85);
     }
   }
 
@@ -751,6 +793,7 @@ export class DanceScene extends Phaser.Scene {
     this.player?.stop();
     this.highway.setVisible(false);
     this.pads.setVisible(false);
+    for (const h of this.padHints) h.setAlpha(0);
     this.comboTxt.setText('');
     this.judgeTxt.setAlpha(0);
     this.roundTxt.setText('BATTLE TERMINÉE');
