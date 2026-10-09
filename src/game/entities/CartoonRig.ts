@@ -41,7 +41,11 @@ export type Action =
   | 'danceL'
   | 'danceR'
   | 'danceUp'
-  | 'danceDown';
+  | 'danceDown'
+  | 'footwork'
+  | 'windmill'
+  | 'headspin'
+  | 'freeze';
 
 export interface RigLook {
   id: string;
@@ -195,6 +199,12 @@ function ell(g: Phaser.GameObjects.Graphics, color: number, x: number, y: number
 }
 
 /** Forme « nuage » : un seul contour autour de plusieurs cercles (boucles de Billy, cheveux frisés). */
+/** Rotation en 2D : le corps s'écrase puis se retourne, sans jamais disparaître. */
+function spinOf(ph: number) {
+  const c = Math.cos(ph);
+  return (c < 0 ? -1 : 1) * Math.max(0.3, Math.abs(c));
+}
+
 function cloud(g: Phaser.GameObjects.Graphics, color: number, circles: [number, number, number][]) {
   g.lineStyle(LW * 2, OUT, 1);
   for (const [x, y, r] of circles) g.strokeCircle(x, y, r);
@@ -222,6 +232,7 @@ interface PartXf {
   earR: number;
   tailR: number;
   bodyX: number;
+  spinX: number; // breakdance : écrase le corps en largeur pour faire croire qu'il tourne (1 = normal)
 }
 
 type PartName =
@@ -1454,6 +1465,10 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       danceR: 0.45,
       danceUp: 0.5,
       danceDown: 0.5,
+      footwork: 1.2,
+      windmill: 1.6,
+      headspin: 1.6,
+      freeze: 1.2,
     };
     this.action = a;
     this.actionT = 0;
@@ -1571,6 +1586,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       earR: Math.sin(this.time * 1.7) * 0.05,
       tailR: Math.sin(this.time * 2.2) * 0.12,
       bodyX: 0,
+      spinX: 1,
     };
 
     // pose de base
@@ -1801,6 +1817,66 @@ export class CartoonRig extends Phaser.GameObjects.Container {
           }
           break;
         }
+        // ---- breakdance
+        case 'footwork': {
+          // six-step : accroupie, une main au sol, les jambes balaient en cercle
+          const e = Math.min(1, p * 6, (1 - p) * 6);
+          const ph = this.actionT * 9;
+          x.legLsy = 1 - 0.45 * e;
+          x.legRsy = 1 - 0.45 * e;
+          x.legLr = 0.18 + Math.sin(ph) * 1.1 * e;
+          x.legRr = -0.18 + Math.sin(ph + Math.PI / 2) * 1.1 * e;
+          x.bodyY = 2 + 8 * e;
+          x.bodyR = Math.sin(ph) * 0.15 * e;
+          x.armLr = 0.5 - 0.9 * e;
+          x.armRr = -0.5 - 0.6 * e;
+          break;
+        }
+        case 'windmill': {
+          // moulin : couchée sur le dos, elle roule et ses jambes tournent dans les airs
+          const e = Math.min(1, p * 6, (1 - p) * 6);
+          const ph = this.actionT * 11;
+          x.bodyR = (Math.PI / 2) * e;
+          x.bodyX = -40 * e;
+          x.bodyY = -14 * e;
+          x.spinX = 1 - e + e * spinOf(ph);
+          x.legLr = 0.18 + (1.3 + Math.sin(ph) * 0.5) * e;
+          x.legRr = -0.18 - (1.3 + Math.cos(ph) * 0.5) * e;
+          x.armLr = 0.5 + 1.2 * e;
+          x.armRr = -0.5 - 1.2 * e;
+          x.headR = 0.3 * e;
+          break;
+        }
+        case 'headspin': {
+          // sur la tête, les jambes en V, elle tourne vite
+          const e = Math.min(1, p * 7, (1 - p) * 7);
+          const ph = this.actionT * 14;
+          x.bodyR = Math.PI * e;
+          x.bodyY = -88 * e;
+          x.spinX = 1 - e + e * spinOf(ph);
+          x.legLr = 0.18 + 0.4 * e;
+          x.legRr = -0.18 - 0.4 * e;
+          x.legLsy = 1;
+          x.legRsy = 1;
+          x.armLr = 0.5 + 2.2 * e;
+          x.armRr = -0.5 - 2.2 * e;
+          break;
+        }
+        case 'freeze': {
+          // freeze : le corps penché presque à l'horizontale sur un bras, les jambes pliées en l'air
+          const e = Math.min(1, p * 8);
+          x.bodyR = -1.15 * e;
+          x.bodyX = 22 * e;
+          x.bodyY = -12 * e;
+          x.armLr = 0.5 + 0.9 * e;
+          x.armRr = -0.5 - 2.0 * e;
+          x.legLr = 0.18 - 1.0 * e;
+          x.legRr = -0.18 - 1.6 * e;
+          x.legLsy = 1 - 0.25 * e;
+          x.legRsy = 1 - 0.25 * e;
+          x.headR = 0.35 * e;
+          break;
+        }
         case 'danceDown': {
           // descente : jambes écartées, bras croisés (pose de b-boy)
           const e = p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7;
@@ -1859,7 +1935,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     // les pièces des jambes s'enfoncent dans l'accroupissement
     im.legL.y = HIP_Y + (1 - x.legLsy) * 6;
     im.legR.y = HIP_Y + (1 - x.legRsy) * 6;
-    this.body2.scaleX = this.facing;
+    this.body2.scaleX = this.facing * x.spinX;
     this.fx.scaleX = this.facing; // garde le texte lisible
   }
 

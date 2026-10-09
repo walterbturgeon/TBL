@@ -50,7 +50,7 @@ const byId = (id: string) => PLAYERS.find((p) => p.id === id)!;
 
 export const TURCAU: TeamConfig = {
   id: 'turcau',
-  sports: ['baseball', 'dance'], // au volleyball, ce sont les Nomads
+  sports: ['baseball'], // au volleyball : les Nomads ; à la danse : les K-Units
   name: 'Les Baddies',
   short: 'BADDIES',
   logoLetter: 'B',
@@ -332,6 +332,37 @@ export const NOMADS: TeamConfig = {
   lineup: [NOM.ophelie, NOM.oceane, NOM.lily, NOM.valentina, NOM.mia, NOM.alicia, NOM.nebai, NOM.marley, NOM.helena],
 };
 
+// ---------------- Les K-Units (danse seulement) ----------------
+// Mêmes membres que les Baddies (demande de l'utilisateur). Les couleurs sont une proposition.
+export const KUNITS: TeamConfig = {
+  id: 'kunits',
+  sports: ['dance'],
+  name: 'Les K-Units',
+  short: 'K-UNITS',
+  logoLetter: 'K',
+  colors: {
+    primary: '#1b1035', // violet presque noir
+    secondary: '#39ff14', // vert fluo
+    pants: '#111111',
+    socks: '#39ff14',
+    cap: '#1b1035',
+    capLogo: '#39ff14',
+  },
+  // positions de baseball obligatoires dans le type, mais l'équipe ne joue qu'à la danse
+  defense: {
+    P: byId('ophelie'),
+    C: byId('alexia'),
+    '1B': byId('oceane'),
+    '2B': byId('josephine'),
+    SS: byId('dannylee'),
+    '3B': byId('charlie'),
+    LF: byId('kellyanne'),
+    CF: byId('lily'),
+    RF: byId('kaelie'),
+  },
+  lineup: TURCAU.lineup,
+};
+
 /** Équipes adverses offertes au joueur (menu JOUER). */
 export const OPPONENTS: TeamConfig[] = [VISITORS, OD2026, ECUREUILS, ITAQ];
 
@@ -340,13 +371,13 @@ export function opponentById(id: string): TeamConfig {
 }
 
 /** Toutes les équipes : n'importe laquelle peut être « ton équipe » ou l'adversaire. */
-export const ALL_TEAMS: TeamConfig[] = [TURCAU, NOMADS, ...OPPONENTS];
+export const ALL_TEAMS: TeamConfig[] = [TURCAU, KUNITS, NOMADS, ...OPPONENTS];
 
 export function teamById(id: string): TeamConfig {
   return ALL_TEAMS.find((t) => t.id === id) ?? TURCAU;
 }
 
-/** Équipes d'un sport (au volleyball : les Nomads au lieu des Baddies ; à la danse : les deux). */
+/** Équipes d'un sport (au volleyball : les Nomads ; à la danse : les K-Units et les Nomads, au lieu des Baddies). */
 export function teamsFor(sport: Sport): TeamConfig[] {
   return ALL_TEAMS.filter((t) => !t.sports || t.sports.includes(sport));
 }

@@ -19,18 +19,47 @@ export interface Song {
   barsPerRound: number;
   color: number; // couleur des lumières
   chords: Chord[]; // un accord par mesure, en boucle
-  /** 16 pas par mesure. x = coup ; o = charleston ouvert ; . = rien */
+  /** 16 pas par mesure. x = coup ; o = charleston ouvert ; r, t, R = roulement de 2, 3, 4 coups ; . = rien */
   kick: string;
+  kick808?: boolean; // grosse caisse longue et grave (trap)
   snare: string;
   clap?: string;
+  snap?: string; // claquements de doigts
+  rim?: string; // bloc de bois / cloche (reggaeton)
   hat: string;
   /** dernière mesure d'une phrase de 4 mesures */
   fill: { kick: string; snare: string; hat: string };
   /** 16 pas : R = fondamentale, 3, 5, 7, O = octave ; . = rien */
   bass: string;
   bassType: 'saw' | '808' | 'slap';
+  bassSlide?: boolean; // la 808 glisse d'une note à l'autre
   keys: string; // 16 pas : x = accord
-  keysType: 'rhodes' | 'stab' | 'pad';
+  keysType: 'rhodes' | 'stab' | 'pad' | 'organ';
+  /** mélodie : une chaîne de 16 notes par mesure (voir mel), en boucle */
+  lead?: number[][];
+  leadType?: 'bell' | 'whistle' | 'pluck' | 'harpsi' | 'flute';
+  leadVol?: number;
+}
+
+const NOTE_BASE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/**
+ * Mélodie lisible : 16 jetons par mesure, séparés par des espaces.
+ * « A4 », « Eb5 », « F#4 » = une note ; « - » = la note précédente continue ; « . » = silence.
+ * Résultat : note MIDI, -1 (continue) ou 0 (silence).
+ */
+export function mel(...bars: string[]): number[][] {
+  return bars.map((bar) => {
+    const tok = bar.trim().split(/\s+/);
+    if (tok.length !== 16) throw new Error(`mélodie : 16 jetons par mesure (${tok.length}) : ${bar}`);
+    return tok.map((t) => {
+      if (t === '-') return -1;
+      if (t === '.') return 0;
+      const m = /^([A-G])(#|b)?(\d)$/.exec(t);
+      if (!m) throw new Error('note inconnue : ' + t);
+      return 12 * (Number(m[3]) + 1) + NOTE_BASE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+    });
+  });
 }
 
 export const SONGS: Song[] = [
@@ -104,6 +133,174 @@ export const SONGS: Song[] = [
     bassType: '808',
     keys: 'x...............',
     keysType: 'pad',
+  },
+  // ---- musiques originales dans le style du hip-hop des années 2012-2013 (sans paroles)
+  {
+    id: 'ville',
+    title: 'Ville Sombre',
+    style: 'Trap 2012',
+    bpm: 140,
+    swing: 0,
+    barsPerRound: 12,
+    color: 0xe63946,
+    chords: [
+      { root: 36, type: 'm' },
+      { root: 44, type: 'M' },
+      { root: 41, type: 'm' },
+      { root: 43, type: 'M' },
+    ],
+    kick: 'x.......x.x.....',
+    kick808: true,
+    snare: '........x.......',
+    clap: '........x.......',
+    hat: 'x.x.x.x.x.t.x.x.',
+    fill: { kick: 'x.......x.x...x.', snare: '........x.....x.', hat: 'x.x.x.xtx.x.RRRR' },
+    bass: 'R.......R.O.....',
+    bassType: '808',
+    bassSlide: true,
+    keys: 'x...............',
+    keysType: 'pad',
+    lead: mel(
+      'C5 . . . Eb5 . . . G5 . . F5 . Eb5 . .',
+      'Eb5 . . . C5 . . . Ab4 . . Bb4 . C5 . .',
+      'F5 . . . Ab5 . . . G5 . . F5 . Eb5 . .',
+      'D5 . . . G4 . . . B4 . . D5 . G5 . .',
+    ),
+    leadType: 'bell',
+    leadVol: 0.08,
+  },
+  {
+    id: 'glisse',
+    title: 'Glisse Glisse',
+    style: 'R&B trap',
+    bpm: 84,
+    swing: 0.1,
+    barsPerRound: 8,
+    color: 0x2ec4b6,
+    chords: [
+      { root: 41, type: 'm7' },
+      { root: 37, type: 'maj7' },
+      { root: 46, type: 'm7' },
+      { root: 48, type: '7' },
+    ],
+    kick: 'x......x..x.....',
+    kick808: true,
+    snare: '................',
+    snap: '....x.......x...',
+    hat: 'x.x.x.x.x.x.x.xr',
+    fill: { kick: 'x......x..x...x.', snare: '............x...', hat: 'x.x.x.x.x.x.ttRR' },
+    bass: 'R......R..5.....',
+    bassType: '808',
+    bassSlide: true,
+    keys: 'x.......x.......',
+    keysType: 'rhodes',
+    lead: mel(
+      'F5 - . Ab5 . C6 - - . . Bb5 . Ab5 . . .',
+      'F5 - . . . . . . Eb5 . F5 . . . . .',
+      'Db5 - . F5 . Ab5 - - . . G5 . F5 . . .',
+      'E5 - - - . . G5 . . . . . . . . .',
+    ),
+    leadType: 'flute',
+    leadVol: 0.07,
+  },
+  {
+    id: 'dembow',
+    title: 'Dembow de Nuit',
+    style: 'Reggaeton',
+    bpm: 96,
+    swing: 0,
+    barsPerRound: 8,
+    color: 0xffd60a,
+    chords: [
+      { root: 45, type: 'm' },
+      { root: 41, type: 'M' },
+      { root: 48, type: 'M' },
+      { root: 43, type: 'M' },
+    ],
+    kick: 'x...x...x...x...',
+    snare: '...x..x....x..x.',
+    rim: '..x...x...x...x.',
+    hat: 'x.x.x.x.x.x.x.x.',
+    fill: { kick: 'x...x...x...x.x.', snare: '...x..x....x.xxx', hat: 'x.x.x.x.x.x.xxxx' },
+    bass: 'R..R..R.R..R..R.',
+    bassType: 'saw',
+    keys: '................',
+    keysType: 'stab',
+    lead: mel(
+      'A4 . C5 . E5 . C5 . A4 . C5 . E5 . G5 .',
+      'F4 . A4 . C5 . A4 . F4 . A4 . C5 . A4 .',
+      'C5 . E5 . G5 . E5 . C5 . E5 . G5 . C6 .',
+      'B4 . D5 . G5 . D5 . B4 . D5 . G5 . F5 .',
+    ),
+    leadType: 'pluck',
+    leadVol: 0.07,
+  },
+  {
+    id: 'vampire',
+    title: 'Minuit Vampire',
+    style: 'Trap sombre',
+    bpm: 136,
+    swing: 0,
+    barsPerRound: 12,
+    color: 0x9d4edd,
+    chords: [
+      { root: 38, type: 'm' },
+      { root: 46, type: 'M' },
+      { root: 43, type: 'm' },
+      { root: 45, type: '7' },
+    ],
+    kick: 'x......x..x.....',
+    kick808: true,
+    snare: '........x.......',
+    clap: '........x.......',
+    hat: 'x.x.xtx.x.x.x.t.',
+    fill: { kick: 'x......x..x..xx.', snare: '........x...x.x.', hat: 'x.x.x.x.RRRRtttt' },
+    bass: 'R......R..R.....',
+    bassType: '808',
+    bassSlide: true,
+    keys: 'x...............',
+    keysType: 'organ',
+    lead: mel(
+      'D5 F5 A5 F5 D5 F5 A5 F5 D5 F5 A5 F5 D6 . . .',
+      'D5 F5 Bb5 F5 D5 F5 Bb5 F5 D5 F5 Bb5 F5 D6 . . .',
+      'D5 G5 Bb5 G5 D5 G5 Bb5 G5 D5 G5 Bb5 G5 D6 . . .',
+      'C#5 E5 A5 E5 C#5 E5 A5 E5 C#5 E5 G5 E5 C#6 . . .',
+    ),
+    leadType: 'harpsi',
+    leadVol: 0.05,
+  },
+  {
+    id: 'ouest',
+    title: 'Côte Ouest',
+    style: 'West Coast',
+    bpm: 98,
+    swing: 0.04,
+    barsPerRound: 8,
+    color: 0x4cc9f0,
+    chords: [
+      { root: 43, type: 'm' },
+      { root: 43, type: 'm' },
+      { root: 39, type: 'M' },
+      { root: 38, type: '7' },
+    ],
+    kick: 'x..x....x.x.....',
+    snare: '................',
+    clap: '....x.......x..x',
+    snap: '....x.......x...',
+    hat: 'x.x.x.x.x.x.x.x.',
+    fill: { kick: 'x..x....x.x..x..', snare: '............x.xx', hat: 'x.x.x.x.x.x.xxxx' },
+    bass: 'R...R..R..R.R...',
+    bassType: 'slap',
+    keys: '....x.......x...',
+    keysType: 'stab',
+    lead: mel(
+      'D6 - - . C6 . Bb5 . A5 - - . G5 . . .',
+      'Bb5 - . A5 . G5 . . D5 - - - . . . .',
+      'Eb6 - - . D6 . C6 . Bb5 - - . G5 . . .',
+      'A5 - - . F#5 - - . D5 - - - . . . .',
+    ),
+    leadType: 'whistle',
+    leadVol: 0.07,
   },
 ];
 

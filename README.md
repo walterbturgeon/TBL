@@ -51,14 +51,15 @@ Dans le menu, choisis **VOLLEYBALL**. Au volleyball, **les Nomads** remplacent l
 
 ## Danse (aperçu)
 
-Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rounds, sur une musique hip-hop.
+Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rounds, sur une musique hip-hop. À la danse, **les K-Units** (mêmes membres que les Baddies) et les Nomads remplacent les Baddies.
 
 - Les flèches descendent dans la piste du centre. Appuie sur **← ↓ ↑ →** (ou WASD) quand une flèche arrive dans sa cible.
 - Sur un téléphone (à l'horizontale), l'écran est partagé en 4 colonnes : ←, ↓, ↑, →. Touche la colonne de la flèche.
 - Chaque bonne flèche fait danser ton équipe : pas à gauche, descente, saut, pas à droite.
+- Sur un appui **PARFAIT**, l'équipe fait un mouvement de breakdance : ← footwork, ↓ freeze, ↑ headspin, → windmill.
 - Une nouvelle équipe de 4 danseuses monte sur scène à chaque round. L'équipe qui a le plus de points gagne le round.
 - ÉCHAP ou ❚❚ : pause.
-- 3 musiques originales (Boom-bap, Funk, Trap). Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
+- 8 musiques originales sans paroles : Boom-bap, Funk, Trap, et 5 dans le style du hip-hop de 2012-2013 (trap, R&B avec claquements de doigts, reggaeton, trap sombre, West Coast). Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
 - Réglages : `src/game/dance/DanceConfig.ts`. Musiques et chorégraphies : `src/game/dance/Songs.ts`.
 
 ## Sons du stade

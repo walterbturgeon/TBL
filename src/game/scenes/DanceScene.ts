@@ -29,6 +29,9 @@ const TOP_Y = 96;
 const TARGET_Y = 870;
 const ARROW_ROT = [-Math.PI / 2, Math.PI, 0, Math.PI / 2]; // la flèche de base pointe vers le haut
 const MOVES = ['danceL', 'danceDown', 'danceUp', 'danceR'] as const;
+/** Breakdance : seulement sur un appui PARFAIT (← footwork, ↓ freeze, ↑ headspin, → windmill). */
+const BREAKS = ['footwork', 'freeze', 'headspin', 'windmill'] as const;
+const BREAK_NAMES = ['FOOTWORK !', 'FREEZE !', 'HEADSPIN !', 'WINDMILL !'];
 const KEY_LANE: Record<string, Lane> = {
   ArrowLeft: 0,
   ArrowDown: 1,
@@ -94,6 +97,7 @@ export class DanceScene extends Phaser.Scene {
   private hud!: Phaser.GameObjects.Container;
   private meterG!: Phaser.GameObjects.Graphics;
   private judgeTxt!: Phaser.GameObjects.Text;
+  private breakTxt!: Phaser.GameObjects.Text;
   private comboTxt!: Phaser.GameObjects.Text;
   private bannerTxt!: Phaser.GameObjects.Text;
   private bannerSub!: Phaser.GameObjects.Text;
@@ -268,9 +272,10 @@ export class DanceScene extends Phaser.Scene {
     this.roundTxt = cartoonText(this, 960, 40, 'BATTLE DE DANSE', 26, '#ffd23f').setOrigin(0.5);
     this.comboTxt = cartoonText(this, 960, 640, '', 44, '#ffffff').setOrigin(0.5).setAlpha(0.9);
     this.judgeTxt = cartoonText(this, 960, 760, '', 56, '#ffffff').setOrigin(0.5).setAlpha(0);
+    this.breakTxt = cartoonText(this, 960, 812, '', 36, '#ffd23f').setOrigin(0.5).setAlpha(0);
     this.bannerTxt = cartoonText(this, 960, 470, '', 110, '#ffd23f').setOrigin(0.5).setAlpha(0);
     this.bannerSub = cartoonText(this, 960, 570, '', 44, '#ffffff').setOrigin(0.5).setAlpha(0);
-    this.hud.add([this.meterG, this.roundTxt, this.comboTxt, this.judgeTxt]);
+    this.hud.add([this.meterG, this.roundTxt, this.comboTxt, this.judgeTxt, this.breakTxt]);
     this.bannerTxt.setDepth(2900);
     this.bannerSub.setDepth(2900);
     // bouton pause (téléphone) et zones de toucher : seulement pendant la battle
@@ -371,8 +376,15 @@ export class DanceScene extends Phaser.Scene {
     }
   }
 
-  private crewMove(side: Side, lane: Lane, all = true) {
-    const dur = clamp((this.player?.spb ?? 0.5) * 0.85, 0.3, 0.55);
+  /** Pas de danse de l'équipe. perfect : un mouvement de breakdance au lieu du pas hip-hop. */
+  private crewMove(side: Side, lane: Lane, all = true, perfect = false) {
+    const spb = this.player?.spb ?? 0.5;
+    if (perfect) {
+      const dur = clamp(spb * 2, 0.7, 1.5);
+      for (const d of this.crews[side]) if (all || d.front) d.rig.play(BREAKS[lane], dur);
+      return;
+    }
+    const dur = clamp(spb * 0.85, 0.3, 0.55);
     for (const d of this.crews[side]) if (all || d.front) d.rig.play(MOVES[lane], dur);
   }
 
@@ -393,36 +405,41 @@ export class DanceScene extends Phaser.Scene {
     this.roundTxt.setText('BATTLE DE DANSE');
     const bg = this.add.rectangle(960, 540, 1920, 1080, 0x05030c, 0.55);
     this.ui.add(bg);
-    this.ui.add(cartoonText(this, 960, 470, 'CHOISIS LA MUSIQUE', 60, '#ffd23f').setOrigin(0.5));
-    this.ui.add(cartoonText(this, 960, 530, `${this.mine.name}  contre  ${this.opp.name}`, 28, '#ffffff').setOrigin(0.5));
-    const W = 440;
-    const H = 260;
+    this.ui.add(cartoonText(this, 960, 445, 'CHOISIS LA MUSIQUE', 56, '#ffd23f').setOrigin(0.5));
+    this.ui.add(cartoonText(this, 960, 500, `${this.mine.name}  contre  ${this.opp.name}`, 26, '#ffffff').setOrigin(0.5));
+    // grille de 4 colonnes
+    const W = 400;
+    const H = 150;
+    const cols = 4;
+    const x0 = (1920 - (cols * W + (cols - 1) * 28)) / 2;
     SONGS.forEach((song, i) => {
-      const x = 960 + (i - 1) * (W + 50) - W / 2;
-      const y = 590;
+      const x = x0 + (i % cols) * (W + 28);
+      const y = 545 + Math.floor(i / cols) * (H + 22);
       this.ui.add(panel(this, x, y, W, H, 0x120a26, 0.95));
       const g = this.add.graphics();
       g.fillStyle(song.color, 1);
-      g.fillRoundedRect(x + 18, y + 18, W - 36, 16, 8);
+      g.fillRoundedRect(x + 16, y + 14, W - 32, 10, 5);
       this.ui.add(g);
-      this.ui.add(cartoonText(this, x + W / 2, y + 90, song.title.toUpperCase(), 42, '#ffffff').setOrigin(0.5));
-      this.ui.add(cartoonText(this, x + W / 2, y + 150, song.style, 30, '#' + song.color.toString(16).padStart(6, '0')).setOrigin(0.5));
-      this.ui.add(cartoonText(this, x + W / 2, y + 200, `${song.bpm} BPM`, 22, '#c9d4ff').setOrigin(0.5));
+      const tt = cartoonText(this, x + W / 2, y + 52, song.title.toUpperCase(), 34, '#ffffff').setOrigin(0.5);
+      if (tt.width > W - 30) tt.setScale((W - 30) / tt.width);
+      this.ui.add(tt);
+      this.ui.add(cartoonText(this, x + W / 2, y + 94, song.style, 24, '#' + song.color.toString(16).padStart(6, '0')).setOrigin(0.5));
+      this.ui.add(cartoonText(this, x + W / 2, y + 126, `${song.bpm} BPM`, 18, '#c9d4ff').setOrigin(0.5));
       const box = this.add.graphics();
       this.ui.add(box);
       this.cards.push({ box, x, y, w: W, h: H });
     });
     const st = Progress.stage('dance');
     const lvl = Progress.on ? `${st.text}   ·   la difficulté monte à chaque chanson` : `Difficulté : ${st.name}  (dans les OPTIONS)`;
-    this.ui.add(cartoonText(this, 960, 900, lvl, 24, st.color).setOrigin(0.5));
+    this.ui.add(cartoonText(this, 960, 908, lvl, 24, st.color).setOrigin(0.5));
     // musique coupée dans les OPTIONS : on le dit, sinon la danse se fait en silence
     const st0 = Save.settings;
     if (st0.muted || st0.musicVolume === 0)
-      this.ui.add(cartoonText(this, 960, 425, 'La musique est coupée : monte-la dans les OPTIONS', 28, '#ff9f43').setOrigin(0.5));
+      this.ui.add(cartoonText(this, 960, 395, 'La musique est coupée : monte-la dans les OPTIONS', 28, '#ff9f43').setOrigin(0.5));
     const go = button(this, 960, 975, 'DANSER !', 380, 84, () => this.startBattle());
     go.setSelected(true);
     this.ui.add(go.c);
-    const help = this.touch ? 'Touche une musique pour l’écouter' : '← → choisir   ·   ESPACE ou OK : danser   ·   ÉCHAP : retour';
+    const help = this.touch ? 'Touche une musique pour l’écouter' : '← → ↑ ↓ choisir   ·   ESPACE ou OK : danser   ·   ÉCHAP : retour';
     this.ui.add(cartoonText(this, 960, 1045, help, 22, '#ffffff').setOrigin(0.5));
     this.pickSong(this.songIdx, true);
   }
@@ -614,7 +631,7 @@ export class DanceScene extends Phaser.Scene {
         const pts = DANCE.points[g] * comboMul(this.aiCombo);
         this.score.ai += pts;
         this.roundScore.ai += pts;
-        this.crewMove('ai', n.lane);
+        this.crewMove('ai', n.lane, true, g === 'perfect');
       }
     }
     this.led.ai.score.setText(String(this.score.ai));
@@ -665,7 +682,15 @@ export class DanceScene extends Phaser.Scene {
       const pts = DANCE.points[g] * comboMul(this.combo);
       this.score.me += pts;
       this.roundScore.me += pts;
-      this.crewMove('me', lane);
+      this.crewMove('me', lane, true, g === 'perfect');
+      if (g === 'perfect') {
+        // nom du mouvement de breakdance sous PARFAIT
+        this.breakTxt.setText(BREAK_NAMES[lane]);
+        this.tweens.killTweensOf(this.breakTxt);
+        this.breakTxt.setAlpha(1).setScale(0.6);
+        this.tweens.add({ targets: this.breakTxt, scale: 1, duration: 160, ease: 'Back.Out' });
+        this.tweens.add({ targets: this.breakTxt, alpha: 0, delay: 500, duration: 220 });
+      }
       if (this.combo % 10 === 0) {
         this.stage.pulse(0.18);
         this.stage.cheer();
@@ -799,8 +824,11 @@ export class DanceScene extends Phaser.Scene {
       return;
     }
     if (this.phase === 'pick') {
-      if (k === 'ArrowLeft' || k === 'a' || k === 'A') this.pickSong((this.songIdx + SONGS.length - 1) % SONGS.length);
-      else if (k === 'ArrowRight' || k === 'd' || k === 'D') this.pickSong((this.songIdx + 1) % SONGS.length);
+      const n = SONGS.length;
+      if (k === 'ArrowLeft' || k === 'a' || k === 'A') this.pickSong((this.songIdx + n - 1) % n);
+      else if (k === 'ArrowRight' || k === 'd' || k === 'D') this.pickSong((this.songIdx + 1) % n);
+      else if (k === 'ArrowUp' || k === 'w' || k === 'W') this.pickSong((this.songIdx + n - 4) % n);
+      else if (k === 'ArrowDown' || k === 's' || k === 'S') this.pickSong((this.songIdx + 4) % n);
       else if (k === ' ' || k === 'Enter') this.startBattle();
       if (!this.player) this.pickSong(this.songIdx, true); // le son vient d'être permis
       return;

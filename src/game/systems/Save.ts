@@ -69,7 +69,7 @@ const DEFAULT_SETTINGS: Settings = {
   volleySets: 1,
   volleyTeam: 'nomads',
   volleyOpponent: 'visiteur',
-  danceTeam: 'turcau',
+  danceTeam: 'kunits',
   danceOpponent: 'od2026',
   danceSong: 'rue',
 };
