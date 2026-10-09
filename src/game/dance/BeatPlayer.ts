@@ -28,6 +28,11 @@ export class BeatPlayer {
   private offsetOk = false;
   private playing = false;
   private pausedAt = 0;
+  // boucle sans trou : quand la partition arrive à loopTo, elle repart à loopFrom
+  private loopFrom = -1;
+  private loopTo = -1;
+  private loopShift = 0;
+  private boost: number = DANCE.musicBoost;
 
   constructor(song: Song) {
     this.song = song;
@@ -48,13 +53,29 @@ export class BeatPlayer {
     return this.playing;
   }
 
+  /** Boucle entre deux positions (s) de la chanson, sans silence entre deux tours. */
+  setLoop(from: number, to: number) {
+    this.loopFrom = from;
+    this.loopTo = to;
+  }
+
+  /** Volume par rapport à la musique des menus (la danse : plus fort ; le volleyball : en fond). */
+  setBoost(b: number) {
+    this.boost = b;
+  }
+
+  private firstAt(t: number) {
+    const i = this.events.findIndex((e) => e.t >= t - 0.001);
+    return i < 0 ? this.events.length : i;
+  }
+
   /** Démarre (ou redémarre) la chanson à la position at (s). */
   start(at = 0, lead = 0.12) {
     const ctx = this.ctx;
     if (!ctx) return;
     if (ctx.state !== 'running') void ctx.resume();
     this.cut();
-    const bus = Sound.musicBus(DANCE.musicBoost);
+    const bus = Sound.musicBus(this.boost);
     if (!bus) return;
     // compresseur : le mélange sonne plus fort et plus « club », sans saturer
     const comp = ctx.createDynamicsCompressor();
@@ -66,8 +87,8 @@ export class BeatPlayer {
     this.out.connect(comp);
     comp.connect(bus);
     this.start0 = ctx.currentTime + lead - at;
-    this.idx = this.events.findIndex((e) => e.t >= at - 0.001);
-    if (this.idx < 0) this.idx = this.events.length;
+    this.idx = this.firstAt(at);
+    this.loopShift = 0;
     this.playing = true;
     this.offsetOk = false;
     this.syncClock(); // l'horloge est juste dès le départ
@@ -78,10 +99,18 @@ export class BeatPlayer {
     const ctx = this.ctx;
     if (!ctx || !this.playing) return;
     const horizon = ctx.currentTime + 0.3;
-    while (this.idx < this.events.length && this.start0 + this.events[this.idx].t < horizon) {
-      const e = this.events[this.idx++];
-      const when = Math.max(ctx.currentTime, this.start0 + e.t);
-      e.play(when);
+    for (;;) {
+      // fin de la boucle : on repart au début de la boucle, juste après le dernier son
+      if (this.loopTo > 0 && (this.idx >= this.events.length || this.events[this.idx].t >= this.loopTo)) {
+        this.loopShift += this.loopTo - this.loopFrom;
+        this.idx = this.firstAt(this.loopFrom);
+      }
+      if (this.idx >= this.events.length) break;
+      const e = this.events[this.idx];
+      const at = this.start0 + this.loopShift + e.t;
+      if (at >= horizon) break;
+      this.idx++;
+      e.play(Math.max(ctx.currentTime, at));
     }
     this.syncClock();
   }
@@ -224,7 +253,7 @@ export class BeatPlayer {
           if (inSec === 1 && i >= 12) push((w) => this.snare(w, 0.25 + (i - 12) * 0.1));
         }
         // klaxon au début de chaque round
-        if (sec.kind === 'round' && inSec === 0 && i === 0) push((w) => {
+        if (sec.kind === 'round' && inSec === 0 && i === 0 && !s.noHorn) push((w) => {
           this.horn(w);
           this.crash(w, 0.4);
         });
@@ -520,6 +549,22 @@ export class BeatPlayer {
       mod.start(w);
       car.stop(w + dur + 1.3);
       mod.stop(w + dur + 1.3);
+      return;
+    }
+    if (kind === 'piano') {
+      // piano : frappe nette, son qui s'éteint (fondamentale + 2 harmoniques)
+      for (const [mul, lvl, dec, type] of [
+        [1, 1, 1.1, 'sine'],
+        [2, 0.35, 0.5, 'triangle'],
+        [3, 0.15, 0.25, 'sine'],
+      ] as const) {
+        const o = ctx.createOscillator();
+        o.type = type;
+        o.frequency.value = f0 * mul;
+        o.connect(this.gainEnv(w, v * lvl, 0.002, Math.min(dec, dur + 0.4)));
+        o.start(w);
+        o.stop(w + dec + 0.1);
+      }
       return;
     }
     if (kind === 'whistle' || kind === 'flute') {

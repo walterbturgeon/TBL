@@ -12,9 +12,7 @@ let loopFrom = 0;
 let loopTo = 0;
 
 function tick() {
-  if (!player) return;
-  player.update();
-  if (player.isPlaying && player.now() > loopTo) player.start(loopFrom);
+  player?.update();
 }
 
 export const DancePreview = {
@@ -27,6 +25,7 @@ export const DancePreview = {
     const r1 = p.sections.find((s) => s.kind === 'round' && s.round === 0)!;
     loopFrom = r1.startBar * 4 * p.spb;
     loopTo = loopFrom + Math.min(8, r1.bars) * 4 * p.spb;
+    p.setLoop(loopFrom, loopTo);
     p.start(loopFrom);
     player = p;
     timer = window.setInterval(tick, 50);

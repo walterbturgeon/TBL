@@ -37,8 +37,9 @@ export interface Song {
   keysType: 'rhodes' | 'stab' | 'pad' | 'organ';
   /** mélodie : une chaîne de 16 notes par mesure (voir mel), en boucle */
   lead?: number[][];
-  leadType?: 'bell' | 'whistle' | 'pluck' | 'harpsi' | 'flute';
+  leadType?: 'bell' | 'whistle' | 'pluck' | 'harpsi' | 'flute' | 'piano';
   leadVol?: number;
+  noHorn?: boolean; // pas de klaxon de battle (musique de fond)
 }
 
 const NOTE_BASE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -300,6 +301,122 @@ export const SONGS: Song[] = [
       'A5 - - . F#5 - - . D5 - - - . . . .',
     ),
     leadType: 'whistle',
+    leadVol: 0.07,
+  },
+];
+
+/**
+ * Musiques de fond du volleyball : originales, sans paroles, dans le style de Drake,
+ * Kendrick Lamar et 21 Savage (demande de l'utilisateur). Le jeu joue le premier round en boucle.
+ */
+export const VOLLEY_SONGS: Song[] = [
+  {
+    id: 'hotline',
+    title: 'Hotline Ding',
+    style: 'Style Drake',
+    bpm: 90,
+    swing: 0.08,
+    barsPerRound: 16,
+    color: 0x6c63ff,
+    noHorn: true,
+    chords: [
+      { root: 43, type: 'm7' },
+      { root: 39, type: 'maj7' },
+      { root: 46, type: 'maj7' },
+      { root: 41, type: 'M' },
+    ],
+    kick: 'x.........x.....',
+    kick808: true,
+    snare: '................',
+    clap: '........x.......',
+    snap: '....x.......x...',
+    hat: 'x.x.x.x.x.x.x.xr',
+    fill: { kick: 'x.........x..x..', snare: '..............xx', hat: 'x.x.x.x.x.x.ttRR' },
+    bass: 'R.........R.....',
+    bassType: '808',
+    bassSlide: true,
+    keys: 'x.......x.......',
+    keysType: 'rhodes',
+    lead: mel(
+      'D5 - - - . . Bb4 . C5 - - . . . . .',
+      '. . . . . . . . G4 - - - . . . .',
+      'F5 - - . D5 . . C5 - - . Bb4 . . . .',
+      'A4 - - - - - . . . . . . . . . .',
+      '. . . . . . . . . . . . . . . .',
+      '. . . . . . . . . . . . . . . .',
+      'D5 - . C5 . Bb4 - - . . G4 . A4 . . .',
+      'Bb4 - - - . . . . . . . . . . . .',
+    ),
+    leadType: 'flute',
+    leadVol: 0.06,
+  },
+  {
+    id: 'humbolt',
+    title: 'HUMBOLT.',
+    style: 'Style Kendrick Lamar',
+    bpm: 76,
+    swing: 0.05,
+    barsPerRound: 16,
+    color: 0xe63946,
+    noHorn: true,
+    chords: [
+      { root: 41, type: 'm' },
+      { root: 41, type: 'm' },
+      { root: 37, type: 'M' },
+      { root: 36, type: 'M' },
+    ],
+    kick: 'x.....x...x.....',
+    kick808: true,
+    snare: '....x.......x...',
+    clap: '....x.......x...',
+    hat: 'x.x.x.x.x.x.x.x.',
+    fill: { kick: 'x.....x...x..x..', snare: '....x.......x.xx', hat: 'x.x.x.x.x.x.xxxx' },
+    bass: 'R.....R...R.....',
+    bassType: '808',
+    keys: '................',
+    keysType: 'stab',
+    lead: mel(
+      'F3 . F3 . Ab3 . F3 . C4 . . Bb3 . Ab3 . .',
+      'F3 . F3 . Ab3 . F3 . Db4 . . C4 . Ab3 . .',
+      'Db3 . Db3 . F3 . Db3 . Ab3 . . F3 . Db3 . .',
+      'C3 . C3 . E3 . G3 . C4 . . Bb3 . G3 . .',
+    ),
+    leadType: 'piano',
+    leadVol: 0.1,
+  },
+  {
+    id: 'banque',
+    title: 'Banque Account',
+    style: 'Style 21 Savage',
+    bpm: 150,
+    swing: 0,
+    barsPerRound: 16,
+    color: 0x2ec4b6,
+    noHorn: true,
+    chords: [
+      { root: 40, type: 'm' },
+      { root: 36, type: 'M' },
+      { root: 45, type: 'm' },
+      { root: 47, type: '7' },
+    ],
+    kick: 'x.......x.x.....',
+    kick808: true,
+    snare: '........x.......',
+    clap: '........x.......',
+    hat: 'x.x.x.t.x.x.x.R.',
+    fill: { kick: 'x.......x.x..x..', snare: '........x....x.x', hat: 'x.x.x.x.RRRRtttt' },
+    bass: 'R.......R...O...',
+    bassType: '808',
+    bassSlide: true,
+    keys: 'x...............',
+    keysType: 'organ',
+    lead: mel(
+      'E5 . . G5 . . B5 . . . A5 . G5 . . .',
+      'E5 . . G5 . . C6 . . . B5 . G5 . . .',
+      'E5 . . A5 . . C6 . . . B5 . A5 . . .',
+      'F#5 . . A5 . . D#6 . . . B5 . A5 . . .',
+    ),
+    leadType: 'bell',
     leadVol: 0.07,
   },
 ];

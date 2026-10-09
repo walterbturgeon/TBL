@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { Progress, atLevel } from '../systems/Progress';
+import { BeatLoop } from '../dance/BeatLoop';
+import { VOLLEY_SONGS } from '../dance/Songs';
 import { rosterOf, sportTeam, stat, teamsFor, type CharacterDef, type TeamConfig } from '../config/teams';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
@@ -152,6 +154,9 @@ export class VolleyScene extends Phaser.Scene {
   private serveSpeed = 1;
   private levelIdx = -2;
   private levelT = 0;
+  // musique de fond (style Drake, Kendrick Lamar, 21 Savage) : une chanson par set
+  private music: BeatLoop | null = null;
+  private songBase = 0;
   private L!: Side;
   private R!: Side;
   private serving!: Side;
@@ -273,6 +278,8 @@ export class VolleyScene extends Phaser.Scene {
       this.presses = [];
     });
     this.events.once('shutdown', () => {
+      this.music?.stop();
+      this.music = null;
       Sound.gymAudio(false);
       this.input.keyboard!.removeAllListeners();
     });
@@ -281,6 +288,9 @@ export class VolleyScene extends Phaser.Scene {
     this.scene.launch('Hud');
     this.scene.bringToTop('Hud');
     Sound.gymAudio(true); // foule du gymnase : pas de musique de baseball
+    this.music?.stop();
+    this.music = new BeatLoop(1.5); // en fond, sous les sons du jeu
+    this.songBase = Math.floor(Math.random() * VOLLEY_SONGS.length);
     this.setPhase('intro', 0.4);
   }
 
@@ -459,6 +469,9 @@ export class VolleyScene extends Phaser.Scene {
       color: '#ffd23f',
     });
     Sound.play('whistle');
+    // nouvelle musique à chaque set, et son nom
+    const song = VOLLEY_SONGS[(this.songBase + this.setNo - 1) % VOLLEY_SONGS.length];
+    if (this.music?.play(song)) this.at(2.2, () => this.hud('hud-popup', { text: `♪ ${song.title}`, color: '#c9d4ff', size: 34 }));
     this.at(1.6, () => this.startServe());
     this.setPhase('point', 99);
   }
@@ -958,6 +971,7 @@ export class VolleyScene extends Phaser.Scene {
 
   private matchOver() {
     this.setPhase('over');
+    this.music?.stop();
     const L = this.L;
     const R = this.R;
     const result: GameSummary['result'] = L.sets > R.sets ? 'win' : 'loss';
