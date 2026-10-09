@@ -114,7 +114,10 @@ export class ResultScene extends Phaser.Scene {
     });
 
     if (win) {
-      if (!Stadium.play('chargeLong')) Sound.play('homerun');
+      // fanfare d'orgue pour le baseball ; foule seulement pour le volleyball
+      if (volley) {
+        if (!Stadium.play('bigCheer', { dur: 4 })) Sound.play('cheer');
+      } else if (!Stadium.play('chargeLong')) Sound.play('homerun');
       this.confetti();
     } else Sound.play('applause', 0.5);
   }

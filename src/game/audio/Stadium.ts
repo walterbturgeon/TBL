@@ -141,6 +141,24 @@ class StadiumAudio {
     for (const id of this.els.keys()) this.stop(id, fade);
   }
 
+  private held: ClipId[] = [];
+
+  /** Arrière-plan : met en pause tous les sons ; les sons en boucle reprendront au retour. */
+  pauseAll() {
+    this.held = [];
+    for (const [id, el] of this.els) {
+      if (el.paused) continue;
+      this.clearTimers(id);
+      if (el.loop && !el.muted) this.held.push(id);
+      el.pause();
+    }
+  }
+
+  resumeAll() {
+    for (const id of this.held) this.els.get(id)?.play().catch(() => undefined);
+    this.held = [];
+  }
+
   private clearTimers(id: ClipId) {
     const s = this.stopTimers.get(id);
     if (s) window.clearTimeout(s);

@@ -52,7 +52,7 @@ export class BeatPlayer {
   start(at = 0, lead = 0.12) {
     const ctx = this.ctx;
     if (!ctx) return;
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (ctx.state !== 'running') void ctx.resume();
     this.cut();
     const bus = Sound.musicBus(DANCE.musicBoost);
     if (!bus) return;

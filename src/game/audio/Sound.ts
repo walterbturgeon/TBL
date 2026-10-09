@@ -44,6 +44,7 @@ class SoundEngine {
   private music!: GainNode;
   private noise!: AudioBuffer;
   private musicOn = false;
+  private musicKind: 'organ' | 'chill' = 'organ';
   private musicTimer: number | null = null;
   private nextNoteTime = 0;
   private step = 0;
@@ -51,8 +52,15 @@ class SoundEngine {
   private vol = { music: 4, sfx: 7, muted: false };
   private crowdNode: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
 
-  /** À appeler lors d'un geste de l'utilisateur (clavier, souris). */
+  /** À appeler lors d'un geste de l'utilisateur (clavier, souris, toucher). */
   unlock() {
+    // iPhone : sans cela, le bouton du mode silencieux coupe les sons du jeu (mais pas ceux du stade)
+    try {
+      const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+    } catch {
+      /* pas d'audioSession : rien à faire */
+    }
     if (!this.ctx) Stadium.unlock();
     if (!this.ctx) {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -70,7 +78,33 @@ class SoundEngine {
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.applyVolumes();
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    if (this.ctx.state !== 'running' && !this.background) {
+      void this.ctx.resume();
+      // iPhone : un son vide joué pendant le geste débloque vraiment le son
+      try {
+        const b = this.ctx.createBuffer(1, 1, 22050);
+        const src = this.ctx.createBufferSource();
+        src.buffer = b;
+        src.connect(this.ctx.destination);
+        src.start(0);
+      } catch {
+        /* rien */
+      }
+    }
+  }
+
+  private background = false;
+
+  /** Le jeu passe en arrière-plan (autre application, écran verrouillé) : silence complet. */
+  suspend() {
+    this.background = true;
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
+  }
+
+  /** Le jeu revient à l'écran. */
+  resume() {
+    this.background = false;
+    if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume();
   }
 
   /** Nouvelle sortie branchée sur la musique (suit le volume de la musique). boost : gain en plus. */
@@ -93,10 +127,26 @@ class SoundEngine {
     Stadium.setVolumes(music, sfx, muted);
   }
 
-  /** Musique des menus : la chanson de 1908 si elle charge, sinon la musique synthétisée. */
+  /** Musique des menus : un air calme (pas de baseball : il est pour tous les sports). */
   menuMusic() {
-    if (Stadium.loop('menuSong', () => this.startMusic())) this.stopMusic();
-    else this.startMusic();
+    Stadium.stopAll(0.5); // aucun son du stade de baseball dans les menus
+    this.ambience(false);
+    this.startMusic('chill');
+  }
+
+  /** Musique du baseball (avant la partie) : la chanson de 1908 si elle charge, sinon l'orgue synthétisé. */
+  baseballMusic() {
+    if (Stadium.loop('menuSong', () => this.startMusic('organ'))) this.stopMusic();
+    else this.startMusic('organ');
+  }
+
+  /** Volleyball : bruit de foule du gymnase, sans musique de baseball. */
+  gymAudio(on: boolean) {
+    if (on) {
+      this.stopMusic();
+      Stadium.stopAll(0.5);
+    }
+    this.ambience(on);
   }
 
   /** Sons pendant une partie : ambiance de vraie foule (sinon foule et musique synthétisées). */
@@ -105,14 +155,14 @@ class SoundEngine {
       Stadium.stop('menuSong', 1);
       const real = Stadium.loop('ambience', () => {
         this.ambience(true);
-        this.startMusic();
+        this.startMusic('organ');
       });
       if (real) {
         this.stopMusic();
         this.ambience(false);
       } else {
         this.ambience(true);
-        this.startMusic();
+        this.startMusic('organ');
       }
     } else {
       Stadium.stop('ambience', 0.8);
@@ -372,9 +422,12 @@ class SoundEngine {
   }
 
   // ---------------------------------------------------------- musique
-  /** Petite musique sportive en boucle (orgue de stade léger). */
-  startMusic() {
-    if (!this.ctx || this.musicOn) return;
+  /** Musique synthétisée en boucle : organ = orgue de stade (baseball) ; chill = air calme des menus. */
+  startMusic(kind: 'organ' | 'chill' = 'organ') {
+    if (!this.ctx) return;
+    if (this.musicOn && this.musicKind === kind) return;
+    this.stopMusic();
+    this.musicKind = kind;
     this.musicOn = true;
     this.nextNoteTime = this.ctx.currentTime + 0.1;
     this.step = 0;
@@ -389,6 +442,7 @@ class SoundEngine {
 
   private schedule() {
     if (!this.ctx || !this.musicOn) return;
+    if (this.musicKind === 'chill') return this.scheduleChill();
     const spb = 60 / 116 / 2; // croches à 116 bpm
     // progression I – vi – IV – V (do majeur), deux variations de mélodie
     const chords = [
@@ -420,6 +474,38 @@ class SoundEngine {
       }
       // charleston léger
       if (s % 2 === 1) this.burst(t, 0.02, 0.05, 'highpass', 7000, 0.7, undefined, this.music);
+      this.nextNoteTime += spb;
+      this.step++;
+    }
+  }
+
+  /** Air calme des menus : piano doux, basse ronde, petit rythme (la mineur, 92 bpm). */
+  private scheduleChill() {
+    const ctx = this.ctx!;
+    const spb = 60 / 92 / 4; // doubles-croches à 92 bpm
+    const chords = [
+      [57, 60, 64, 67],
+      [53, 57, 60, 64],
+      [48, 52, 55, 59],
+      [55, 59, 62, 65],
+    ];
+    const melody = [0, -1, -1, 2, -1, -1, 1, -1, -1, -1, 3, -1, 2, -1, -1, -1];
+    while (this.nextNoteTime < ctx.currentTime + 0.25) {
+      const t = this.nextNoteTime;
+      const bar = Math.floor(this.step / 16) % 4;
+      const s = this.step % 16;
+      const ch = chords[bar];
+      // basse ronde
+      if (s === 0 || s === 10) this.tone('sine', mtof(ch[0] - 24), mtof(ch[0] - 24), t, spb * 5, 0.3, this.music);
+      // accord de piano doux
+      if (s === 0 || s === 7) for (const n of ch) this.tone('sine', mtof(n), mtof(n), t, spb * 6, 0.04, this.music);
+      // petite mélodie (une mesure sur deux)
+      const m = melody[s];
+      if (m >= 0 && Math.floor(this.step / 16) % 2 === 1) this.tone('triangle', mtof(ch[m] + 12), mtof(ch[m] + 12), t, spb * 2, 0.05, this.music);
+      // grosse caisse douce et charleston
+      if (s === 0 || s === 8) this.tone('sine', 120, 45, t, 0.18, 0.25, this.music);
+      if (s === 4 || s === 12) this.burst(t, 0.06, 0.06, 'bandpass', 1800, 0.8, undefined, this.music);
+      if (s % 2 === 0) this.burst(t, 0.015, 0.025, 'highpass', 8000, 0.7, undefined, this.music);
       this.nextNoteTime += spb;
       this.step++;
     }

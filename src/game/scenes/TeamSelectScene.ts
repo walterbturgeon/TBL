@@ -54,6 +54,11 @@ export class TeamSelectScene extends Phaser.Scene {
     this.sport = data?.sport ?? 'baseball';
     // nouvelle session : la difficulté progressive repart du niveau 1
     Progress.reset(this.sport);
+    // la musique de baseball joue seulement pour le baseball
+    if (Sound.ctx) {
+      if (this.sport === 'baseball') Sound.baseballMusic();
+      else Sound.menuMusic();
+    }
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
     // chaque sport garde ses propres choix (au volleyball : les Nomads au lieu des Baddies)

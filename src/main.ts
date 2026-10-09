@@ -52,6 +52,28 @@ const unlock = () => {
 };
 window.addEventListener('keydown', unlock, { capture: true });
 window.addEventListener('pointerdown', unlock, { capture: true });
+// iPhone : le son se débloque seulement à la fin d'un toucher
+window.addEventListener('touchend', unlock, { capture: true });
+window.addEventListener('click', unlock, { capture: true });
+
+// Le jeu passe en arrière-plan (autre application, écran verrouillé) : plus aucun son, et la partie se met en pause.
+let inBackground = false;
+const toBackground = () => {
+  if (inBackground) return;
+  inBackground = true;
+  Sound.suspend();
+  Stadium.pauseAll();
+  game.events.emit('app-hidden');
+};
+const toForeground = () => {
+  if (!inBackground || document.hidden) return;
+  inBackground = false;
+  Sound.resume();
+  Stadium.resumeAll();
+};
+document.addEventListener('visibilitychange', () => (document.hidden ? toBackground() : toForeground()));
+window.addEventListener('pagehide', toBackground);
+window.addEventListener('pageshow', toForeground);
 
 // Télécommande : Retour et Lecture/Pause = pause dans la partie, retour au menu ailleurs.
 const TV_KEYS = ['GoBack', 'BrowserBack', 'MediaPlayPause', 'MediaPlay', 'MediaPause'];

@@ -254,12 +254,14 @@ export class GameScene extends Phaser.Scene {
       if (!this.scene.isPaused()) this.wantPause = true;
     };
     this.game.events.on('tv-back', onBack);
+    this.game.events.on('app-hidden', onBack); // arrière-plan : pause
     const onSprint = () => {
       this.sprint = Math.min(1, this.sprint + CONTROLS.sprintPerTap * 1.4);
     };
     this.game.events.on('touch-sprint', onSprint);
     this.events.once('shutdown', () => {
       this.game.events.off('tv-back', onBack);
+      this.game.events.off('app-hidden', onBack);
       this.game.events.off('touch-sprint', onSprint);
     });
     this.touch = isTouch();

@@ -120,7 +120,7 @@ export class OptionsScene extends Phaser.Scene {
           } else {
             Stadium.stopAll(0.3);
             Stadium.enabled = false;
-            Sound.startMusic();
+            Sound.menuMusic();
           }
         },
       },

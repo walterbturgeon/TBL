@@ -138,9 +138,10 @@ export class DanceScene extends Phaser.Scene {
     this.opp = sportTeam('dance', s.danceOpponent);
     if (this.opp.id === this.mine.id) this.opp = teamsFor('dance').find((t) => t.id !== this.mine.id)!;
 
-    // la musique du menu s'arrête : la musique de danse prend toute la place
+    // toutes les autres musiques s'arrêtent : la musique de danse prend toute la place
     Sound.stopMusic();
-    Stadium.stop('menuSong', 0.4);
+    Sound.ambience(false);
+    Stadium.stopAll(0.3);
 
     this.stage = new StageRenderer(this, this.mine, this.opp);
     this.stage.setColor(SONGS[this.songIdx].color);
@@ -159,7 +160,13 @@ export class DanceScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointer(p));
     onTvBack(this, () => this.back());
     document.addEventListener('visibilitychange', this.onVis);
+    // arrière-plan (autre application, écran verrouillé) : pause
+    const onHidden = () => {
+      if (this.phase === 'play' && !this.paused) this.setPaused(true);
+    };
+    this.game.events.on('app-hidden', onHidden);
     this.events.once('shutdown', () => {
+      this.game.events.off('app-hidden', onHidden);
       document.removeEventListener('visibilitychange', this.onVis);
       this.player?.stop();
       this.player = null;
@@ -408,6 +415,10 @@ export class DanceScene extends Phaser.Scene {
     const st = Progress.stage('dance');
     const lvl = Progress.on ? `${st.text}   ·   la difficulté monte à chaque chanson` : `Difficulté : ${st.name}  (dans les OPTIONS)`;
     this.ui.add(cartoonText(this, 960, 900, lvl, 24, st.color).setOrigin(0.5));
+    // musique coupée dans les OPTIONS : on le dit, sinon la danse se fait en silence
+    const st0 = Save.settings;
+    if (st0.muted || st0.musicVolume === 0)
+      this.ui.add(cartoonText(this, 960, 425, 'La musique est coupée : monte-la dans les OPTIONS', 28, '#ff9f43').setOrigin(0.5));
     const go = button(this, 960, 975, 'DANSER !', 380, 84, () => this.startBattle());
     go.setSelected(true);
     this.ui.add(go.c);

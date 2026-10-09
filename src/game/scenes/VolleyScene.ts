@@ -258,6 +258,12 @@ export class VolleyScene extends Phaser.Scene {
       action(p.event.timeStamp);
       this.pointerTap = true;
     });
+    // arrière-plan (autre application) : pause
+    const onHidden = () => {
+      if (!this.scene.isPaused()) this.wantPause = true;
+    };
+    this.game.events.on('app-hidden', onHidden);
+    this.events.once('shutdown', () => this.game.events.off('app-hidden', onHidden));
     onTvBack(this, () => {
       if (!this.scene.isPaused()) this.wantPause = true;
     });
@@ -267,14 +273,14 @@ export class VolleyScene extends Phaser.Scene {
       this.presses = [];
     });
     this.events.once('shutdown', () => {
-      Sound.gameAudio(false);
+      Sound.gymAudio(false);
       this.input.keyboard!.removeAllListeners();
     });
 
     this.registry.set('hudMode', 'volley');
     this.scene.launch('Hud');
     this.scene.bringToTop('Hud');
-    Sound.gameAudio(true);
+    Sound.gymAudio(true); // foule du gymnase : pas de musique de baseball
     this.setPhase('intro', 0.4);
   }
 
