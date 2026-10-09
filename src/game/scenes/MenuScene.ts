@@ -69,11 +69,12 @@ export class MenuScene extends Phaser.Scene {
     const labels: [string, () => void][] = [
       ['BASEBALL', () => this.go('TeamSelect', { sport: 'baseball' })],
       ['VOLLEYBALL', () => this.go('TeamSelect', { sport: 'volley' })],
+      ['DANSE', () => this.go('TeamSelect', { sport: 'dance' })],
       ['JOUEUSES', () => this.go('Roster')],
       ['OPTIONS', () => this.go('Options')],
     ];
     this.buttons = labels.map(([l, fn], i) => {
-      const b = button(this, 960, 480 + i * 104, l, 440, 88, fn);
+      const b = button(this, 960, 452 + i * 88, l, 440, 76, fn);
       b.c.on('pointerover', () => this.select(i));
       return b;
     });
@@ -82,9 +83,9 @@ export class MenuScene extends Phaser.Scene {
     const rec = Save.records();
     cartoonText(this, 30, 1050, `v${VERSION}`, 18, '#c9d4ff').setOrigin(0, 0.5);
     if (rec.gamesPlayed > 0)
-      cartoonText(this, 960, 880, `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`, 24, '#ffd23f').setOrigin(0.5);
+      cartoonText(this, 960, 892, `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`, 24, '#ffd23f').setOrigin(0.5);
     cartoonText(this, 1890, 1050, 'F : plein écran', 18, '#c9d4ff').setOrigin(1, 0.5);
-    const help = cartoonText(this, 960, 418, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
+    const help = cartoonText(this, 960, 396, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
     this.tweens.add({ targets: help, alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
 
     this.addInstallButton();

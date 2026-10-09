@@ -37,7 +37,11 @@ export type Action =
   | 'set'
   | 'spike'
   | 'block'
-  | 'serve';
+  | 'serve'
+  | 'danceL'
+  | 'danceR'
+  | 'danceUp'
+  | 'danceDown';
 
 export interface RigLook {
   id: string;
@@ -64,27 +68,36 @@ export interface RigLook {
   logoLetter: string;
   catcherGear: boolean;
   volley: boolean; // tenue de volleyball : pas de casquette, short, genouillères
+  dance: boolean; // tenue de danse : pas de casquette, pantalon de jogging, espadrilles
   bodyWidth: number;
   expression: Expression;
   detail: boolean; // portraits : iris colorés, reflets
 }
 
-export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear?: boolean; detail?: boolean; volley?: boolean } = {}): RigLook {
+export function lookFor(
+  def: CharacterDef,
+  team: TeamConfig,
+  opts: { catcherGear?: boolean; detail?: boolean; volley?: boolean; dance?: boolean } = {},
+): RigLook {
   const c = team.colors;
   const jersey = hex(def.uniformColor ?? c.primary);
+  // danse : pantalon de jogging foncé (un pantalon de baseball blanc ne fait pas hip-hop)
+  const pants = hex(c.pants);
+  const light = ((pants >> 16) & 255) + ((pants >> 8) & 255) + (pants & 255) > 600;
   const base = {
     id: def.id,
     name: (def.kind === 'girl' && def.nick ? def.nick : def.name.split(' ')[0]).toUpperCase(),
     number: def.number,
     jersey,
     trim: hex(c.secondary),
-    pants: hex(c.pants),
+    pants: opts.dance && light ? 0x2b2b38 : pants,
     socks: hex(c.socks),
     cap: hex(c.cap),
     capLogo: hex(c.capLogo),
     logoLetter: team.logoLetter,
     catcherGear: !!opts.catcherGear,
     volley: !!opts.volley,
+    dance: !!opts.dance,
     expression: def.expression,
     detail: !!opts.detail,
   };
@@ -306,6 +319,9 @@ export class CartoonRig extends Phaser.GameObjects.Container {
   private earFlare = 0;
   baseScale = 1;
   facing = 1;
+  /** danse : force du balancement au rythme (0 = rien) et position dans la musique (en temps) */
+  groove = 0;
+  beat = 0;
   private im = {} as Partial<Record<PartName, Phaser.GameObjects.Image>> &
     Record<'shadow' | 'ring' | 'ballDot' | 'legL' | 'legR' | 'torso' | 'armL' | 'armR' | 'bat' | 'headBack' | 'face' | 'hairFront' | 'capG' | 'hairBack', Phaser.GameObjects.Image>;
   private res = 2;
@@ -504,6 +520,20 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         g.fillRect(-4, 15, 8, 5);
         g.lineStyle(2, OUT, 1);
         g.strokeRect(-4, 15, 8, 5);
+      } else if (L.dance) {
+        // pantalon de jogging ample, bande de la couleur de l'équipe, poignet au bas
+        poly(g, L.pants, [
+          { x: -5.6, y: -1 },
+          { x: 5.6, y: -1 },
+          { x: 5.4, y: 17 },
+          { x: -5.4, y: 17 },
+        ]);
+        g.fillStyle(L.trim, 1);
+        g.fillRect(side * 3.6 - 0.9, 0, 1.8, 15);
+        g.fillStyle(shade('#' + L.pants.toString(16).padStart(6, '0'), 0.7), 1);
+        g.fillRect(-5, 16, 10, 3);
+        g.lineStyle(2, OUT, 1);
+        g.strokeRect(-5, 16, 10, 3);
       } else {
         poly(g, L.pants, [
           { x: -5, y: -1 },
@@ -530,7 +560,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         g.lineStyle(1.5, OUT, 1);
         g.lineBetween(side * 1 - 2, 19.5, side * 1 - 2, 23);
         g.lineBetween(side * 1 + 2, 19.5, side * 1 + 2, 23);
-      } else if (L.volley) {
+      } else if (L.volley || L.dance) {
         // espadrilles blanches avec une bande de la couleur de l'équipe
         ell(g, 0xf4f4f4, side * 1, 22, 13, 7);
         g.fillStyle(L.trim === 0xffffff ? L.jersey : L.trim, 1);
@@ -602,7 +632,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       g.lineStyle(2, L.trim, 1);
       g.lineBetween(-4, 6, 4, 6);
       const gloveSide = front ? 1 : -1;
-      if (side === gloveSide && !L.volley) {
+      if (side === gloveSide && !L.volley && !L.dance) {
         const r = L.catcherGear ? 9.5 : 7;
         circ(g, 0x9b5a2a, 0, 19, r);
         g.lineStyle(1.5, 0x5a3010, 1);
@@ -920,7 +950,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         }
       }
     }
-    if (L.volley) {
+    if (L.volley || L.dance) {
       // pas de casquette : le dessus de la tête est en cheveux, avec une frange
       this.capG.clear();
       if (front && L.kind === 'girl') {
@@ -967,7 +997,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         1.5,
       );
       // sur le dessus (au volleyball, sans casquette)
-      if (L.volley) {
+      if (L.volley || L.dance) {
         poly(
           hf,
           c,
@@ -1420,6 +1450,10 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       spike: 0.62,
       block: 0.7,
       serve: 0.5,
+      danceL: 0.45,
+      danceR: 0.45,
+      danceUp: 0.5,
+      danceDown: 0.5,
     };
     this.action = a;
     this.actionT = 0;
@@ -1576,6 +1610,19 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       }
     }
 
+    // danse : balancement au rythme quand aucun pas n'est en cours
+    if (this.groove > 0 && !this.action) {
+      const dip = Math.pow(Math.cos(Math.PI * this.beat), 2);
+      const sway = Math.sin(Math.PI * this.beat);
+      x.bodyY += 5 * this.groove * dip;
+      x.headR += 0.07 * this.groove * sway;
+      x.bodyR += 0.04 * this.groove * sway;
+      x.armLr += 0.25 * this.groove * dip;
+      x.armRr -= 0.25 * this.groove * dip;
+      x.legLsy = 1 - 0.08 * this.groove * dip;
+      x.legRsy = 1 - 0.08 * this.groove * dip;
+    }
+
     // course
     if (this.moveSpeed > 0.5 && this.action !== 'slide') {
       this.runPhase += dt * (6 + this.moveSpeed * 0.32);
@@ -1713,6 +1760,60 @@ export class CartoonRig extends Phaser.GameObjects.Container {
           x.armLr = p < 0.4 ? 2.9 * (p / 0.4) : 2.9 - 3.6 * ((p - 0.4) / 0.6);
           x.bodyY = -8 * Math.sin(p * Math.PI);
           break;
+        // ---- danse (hip-hop) : le pas arrive vite, puis revient doucement
+        case 'danceL':
+        case 'danceR': {
+          const k = this.action === 'danceL' ? -1 : 1;
+          const e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
+          const s2 = Math.sin(e * Math.PI * 0.5);
+          x.bodyX = 8 * k * s2;
+          x.bodyR = 0.2 * k * s2;
+          x.headR = 0.14 * k * s2;
+          x.bodyY = 2 + 3 * s2;
+          // bras du côté du pas : vers le haut et dehors ; l'autre bras plié devant
+          if (k < 0) {
+            x.armLr = 0.5 + 2.1 * s2;
+            x.armRr = -0.5 + 1.1 * s2;
+            x.legLr = 0.18 + 0.5 * s2;
+            x.legRr = -0.18 + 0.12 * s2;
+          } else {
+            x.armRr = -0.5 - 2.1 * s2;
+            x.armLr = 0.5 - 1.1 * s2;
+            x.legRr = -0.18 - 0.5 * s2;
+            x.legLr = 0.18 - 0.12 * s2;
+          }
+          break;
+        }
+        case 'danceUp': {
+          // saut, les deux bras en V
+          const e = Math.sin(p * Math.PI);
+          x.bodyY = -26 * e;
+          x.armLr = 0.5 + 2.4 * Math.min(1, p * 3);
+          x.armRr = -0.5 - 2.4 * Math.min(1, p * 3);
+          x.legLr = 0.3 * e;
+          x.legRr = -0.3 * e;
+          x.legLsy = 1 - 0.15 * e;
+          x.legRsy = 1 - 0.15 * e;
+          if (p > 0.7) {
+            const r = (1 - p) / 0.3;
+            x.armLr = 0.5 + 2.4 * r;
+            x.armRr = -0.5 - 2.4 * r;
+          }
+          break;
+        }
+        case 'danceDown': {
+          // descente : jambes écartées, bras croisés (pose de b-boy)
+          const e = p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7;
+          x.legLsy = 1 - 0.4 * e;
+          x.legRsy = 1 - 0.4 * e;
+          x.legLr = 0.18 + 0.55 * e;
+          x.legRr = -0.18 - 0.55 * e;
+          x.bodyY = 2 + 4 * e;
+          x.armLr = 0.5 - 1.3 * e;
+          x.armRr = -0.5 + 1.3 * e;
+          x.headR = 0.12 * e;
+          break;
+        }
       }
       if (this.actionT >= this.actionDur) {
         if (this.action === 'swing' && this.pose !== 'bat') this.im.bat.setVisible(false);

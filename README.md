@@ -32,6 +32,18 @@ Dans le menu, choisis **VOLLEYBALL**. Au volleyball, **les Nomads** remplacent l
 - Points par set (15, 21, 25) et nombre de sets (1 ou 3) : dans les OPTIONS.
 - Réglages : `src/game/volley/VolleyConfig.ts`.
 
+## Danse (aperçu)
+
+Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rounds, sur une musique hip-hop.
+
+- Les flèches descendent dans la piste du centre. Appuie sur **← ↓ ↑ →** (ou WASD) quand une flèche arrive dans sa cible.
+- Sur un téléphone (à l'horizontale), l'écran est partagé en 4 colonnes : ←, ↓, ↑, →. Touche la colonne de la flèche.
+- Chaque bonne flèche fait danser ton équipe : pas à gauche, descente, saut, pas à droite.
+- Une nouvelle équipe de 4 danseuses monte sur scène à chaque round. L'équipe qui a le plus de points gagne le round.
+- ÉCHAP ou ❚❚ : pause.
+- 3 musiques originales (Boom-bap, Funk, Trap). Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
+- Réglages : `src/game/dance/DanceConfig.ts`. Musiques et chorégraphies : `src/game/dance/Songs.ts`.
+
 ## Sons du stade
 
 L'orgue, la foule et les chants sont de vrais enregistrements, lus en ligne (ils ne sont pas stockés dans le jeu). Sans connexion, le jeu utilise ses sons synthétisés. La liste est dans `src/game/config/sounds.ts`.
@@ -59,7 +71,7 @@ Ouvre ensuite http://localhost:5173.
 - Joueuses : `src/game/config/players.ts`
 - Billy et Stella : `src/game/config/dogs.ts`
 - Équipes, positions, rotation, ordre au bâton, phrase de bande dessinée de chaque personne pour une longue frappe (`hitPhrase`) : `src/game/config/teams.ts`
-- Les Nomads (volleyball seulement) : `NOM` et `NOMADS` dans `src/game/config/teams.ts`. Le champ `sports` choisit le sport de chaque équipe.
+- Les Nomads (volleyball et danse) : `NOM` et `NOMADS` dans `src/game/config/teams.ts`. Le champ `sports` choisit le sport de chaque équipe.
 - Règles, difficulté, vitesses : `src/game/config/gameConfig.ts`
 
 ## Publier sur GitHub Pages

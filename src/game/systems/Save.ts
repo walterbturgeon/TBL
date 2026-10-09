@@ -22,6 +22,9 @@ export interface Settings {
   volleySets: number; // volleyball : 1 ou 3 sets
   volleyTeam: string; // volleyball : ton équipe
   volleyOpponent: string; // volleyball : équipe adverse
+  danceTeam: string; // danse : ton équipe
+  danceOpponent: string; // danse : équipe adverse
+  danceSong: string; // danse : dernière musique choisie
 }
 
 export interface CareerLine {
@@ -45,6 +48,8 @@ export interface Records {
   career: Record<string, CareerLine>;
   volleyWins?: number;
   volleyLosses?: number;
+  danceWins?: number;
+  danceLosses?: number;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +67,9 @@ const DEFAULT_SETTINGS: Settings = {
   volleySets: 1,
   volleyTeam: 'nomads',
   volleyOpponent: 'visiteur',
+  danceTeam: 'turcau',
+  danceOpponent: 'od2026',
+  danceSong: 'rue',
 };
 
 const DEFAULT_RECORDS: Records = {

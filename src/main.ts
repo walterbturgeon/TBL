@@ -9,6 +9,7 @@ import { GameScene } from './game/scenes/GameScene';
 import { HudScene } from './game/scenes/HudScene';
 import { ResultScene } from './game/scenes/ResultScene';
 import { VolleyScene } from './game/scenes/VolleyScene';
+import { DanceScene } from './game/scenes/DanceScene';
 import { Sound } from './game/audio/Sound';
 import { Stadium } from './game/audio/Stadium';
 import { Save } from './game/systems/Save';
@@ -37,7 +38,7 @@ const game = new Phaser.Game({
   render: { antialias: true, roundPixels: false },
   input: { keyboard: true, gamepad: false },
   fps: quality === 'normal' ? { target: 60 } : { target: 30, limit: 30 },
-  scene: [BootScene, MenuScene, TeamSelectScene, PlayerSelectScene, OptionsScene, GameScene, VolleyScene, HudScene, ResultScene],
+  scene: [BootScene, MenuScene, TeamSelectScene, PlayerSelectScene, OptionsScene, GameScene, VolleyScene, DanceScene, HudScene, ResultScene],
 });
 
 // Sons du stade (orgue, foule) : chargés en ligne depuis Freesound et Wikimedia Commons.

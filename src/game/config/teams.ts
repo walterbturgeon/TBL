@@ -30,7 +30,7 @@ export interface TeamColors {
   capLogo: string;
 }
 
-export type Sport = 'baseball' | 'volley';
+export type Sport = 'baseball' | 'volley' | 'dance';
 
 export interface TeamConfig {
   id: string;
@@ -50,7 +50,7 @@ const byId = (id: string) => PLAYERS.find((p) => p.id === id)!;
 
 export const TURCAU: TeamConfig = {
   id: 'turcau',
-  sports: ['baseball'], // au volleyball, ce sont les Nomads
+  sports: ['baseball', 'dance'], // au volleyball, ce sont les Nomads
   name: 'Les Baddies',
   short: 'BADDIES',
   logoLetter: 'B',
@@ -285,7 +285,7 @@ export const ITAQ: TeamConfig = {
   lineup: [ITQ.emilie, ITQ.laurie, ITQ.renaud, ITQ.xavier, ITQ.maryse, ITQ.felix, ITQ.coralie, ITQ.annabelle, ITQ.olivier],
 };
 
-// ---------------- Les Nomads (volleyball seulement) ----------------
+// ---------------- Les Nomads (volleyball et danse) ----------------
 // Fournis par l'utilisateur : les noms, les cheveux, la peau de Marley, Mia qui ne tient pas en place, Helena calme.
 // Ophélie, Océane et Lily : mêmes grandeurs, yeux, numéros et statistiques que chez les Baddies.
 // Les autres grandeurs (65 po), les yeux, les numéros, les statistiques et les couleurs sont des propositions.
@@ -304,7 +304,7 @@ const NOM = {
 
 export const NOMADS: TeamConfig = {
   id: 'nomads',
-  sports: ['volley'],
+  sports: ['volley', 'dance'],
   name: 'Les Nomads',
   short: 'NOMADS',
   logoLetter: 'N',
@@ -316,7 +316,7 @@ export const NOMADS: TeamConfig = {
     cap: '#7b1e3a',
     capLogo: '#ecd3a5',
   },
-  // positions de baseball obligatoires dans le type, mais l'équipe ne joue qu'au volleyball
+  // positions de baseball obligatoires dans le type, mais l'équipe ne joue pas au baseball
   defense: {
     P: NOM.ophelie,
     C: NOM.oceane,
@@ -346,7 +346,7 @@ export function teamById(id: string): TeamConfig {
   return ALL_TEAMS.find((t) => t.id === id) ?? TURCAU;
 }
 
-/** Équipes d'un sport (au volleyball : les Nomads au lieu des Baddies). */
+/** Équipes d'un sport (au volleyball : les Nomads au lieu des Baddies ; à la danse : les deux). */
 export function teamsFor(sport: Sport): TeamConfig[] {
   return ALL_TEAMS.filter((t) => !t.sports || t.sports.includes(sport));
 }

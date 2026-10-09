@@ -73,6 +73,20 @@ class SoundEngine {
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
+  /** Nouvelle sortie branchée sur la musique (suit le volume de la musique). boost : gain en plus. */
+  musicBus(boost = 1): GainNode | null {
+    if (!this.ctx) return null;
+    const g = this.ctx.createGain();
+    g.gain.value = boost;
+    g.connect(this.music);
+    return g;
+  }
+
+  /** Bruit blanc de 2 s (pour les caisses claires, les charlestons…). */
+  get noiseBuffer(): AudioBuffer | null {
+    return this.ctx ? this.noise : null;
+  }
+
   setVolumes(music: number, sfx: number, muted: boolean) {
     this.vol = { music, sfx, muted };
     this.applyVolumes();

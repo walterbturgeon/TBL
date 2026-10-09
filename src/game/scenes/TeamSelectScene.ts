@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DIFFICULTY } from '../config/gameConfig';
-import { positionsOf, rosterOf, sportTeam, stat, teamsFor, type TeamConfig } from '../config/teams';
+import { positionsOf, rosterOf, sportTeam, stat, teamsFor, type Sport, type TeamConfig } from '../config/teams';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
@@ -30,27 +30,34 @@ export class TeamSelectScene extends Phaser.Scene {
   private boxes: { x: number; y: number; w: number; h: number }[] = [];
   private cardRigs: CartoonRig[][] = [];
   private nextBtn: MenuButton | null = null;
-  private sport: 'baseball' | 'volley' = 'baseball';
+  private sport: Sport = 'baseball';
 
   private teams() {
     return teamsFor(this.sport);
   }
 
-  /** Joueuses montrées pour une équipe (au volleyball : sans les chiens). */
+  /** Joueuses montrées pour une équipe (au volleyball et à la danse : sans les chiens). */
   private playersOf(t: TeamConfig) {
     const all = rosterOf(t);
-    return this.sport === 'volley' ? all.filter((c) => c.kind !== 'dog') : all;
+    return this.sport === 'baseball' ? all : all.filter((c) => c.kind !== 'dog');
   }
 
-  create(data?: { sport?: 'baseball' | 'volley' }) {
+  /** Réglages où chaque sport garde son équipe et son adversaire. */
+  private keys(): { mine: 'myTeam' | 'volleyTeam' | 'danceTeam'; opp: 'opponent' | 'volleyOpponent' | 'danceOpponent' } {
+    if (this.sport === 'volley') return { mine: 'volleyTeam', opp: 'volleyOpponent' };
+    if (this.sport === 'dance') return { mine: 'danceTeam', opp: 'danceOpponent' };
+    return { mine: 'myTeam', opp: 'opponent' };
+  }
+
+  create(data?: { sport?: Sport }) {
     this.sport = data?.sport ?? 'baseball';
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
     // chaque sport garde ses propres choix (au volleyball : les Nomads au lieu des Baddies)
     const s = Save.settings;
-    const volley = this.sport === 'volley';
-    this.mine = sportTeam(this.sport, volley ? s.volleyTeam : s.myTeam);
-    this.opp = sportTeam(this.sport, volley ? s.volleyOpponent : s.opponent);
+    const k = this.keys();
+    this.mine = sportTeam(this.sport, s[k.mine]);
+    this.opp = sportTeam(this.sport, s[k.opp]);
     if (this.opp.id === this.mine.id) this.opp = this.teams().find((t) => t.id !== this.mine.id)!;
     // la scène est réutilisée : on oublie les objets de la visite précédente
     this.page = null;
@@ -89,13 +96,13 @@ export class TeamSelectScene extends Phaser.Scene {
     Sound.play('select');
     if (this.step === 'mine') {
       this.mine = this.list[this.sel];
-      Save.updateSettings(this.sport === 'volley' ? { volleyTeam: this.mine.id } : { myTeam: this.mine.id });
+      Save.updateSettings({ [this.keys().mine]: this.mine.id });
       if (this.opp.id === this.mine.id) this.opp = this.teams().find((t) => t.id !== this.mine.id)!;
       this.show('mineRoster');
     } else if (this.step === 'mineRoster') this.show('opp');
     else if (this.step === 'opp') {
       this.opp = this.list[this.sel];
-      Save.updateSettings(this.sport === 'volley' ? { volleyOpponent: this.opp.id } : { opponent: this.opp.id });
+      Save.updateSettings({ [this.keys().opp]: this.opp.id });
       this.show('oppRoster');
     } else this.start();
   }
@@ -113,7 +120,8 @@ export class TeamSelectScene extends Phaser.Scene {
   private start() {
     this.input.keyboard!.removeAllListeners();
     this.cameras.main.fadeOut(220, 15, 26, 61);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(this.sport === 'volley' ? 'Volley' : 'Game'));
+    const next = this.sport === 'volley' ? 'Volley' : this.sport === 'dance' ? 'Dance' : 'Game';
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(next));
   }
 
   private add2<T extends Phaser.GameObjects.GameObject>(o: T): T {
@@ -124,7 +132,8 @@ export class TeamSelectScene extends Phaser.Scene {
   private header(stepNo: number, title: string, sub: string) {
     this.add2(cartoonText(this, 960, 62, title, 56, '#ffd23f').setOrigin(0.5));
     this.add2(cartoonText(this, 960, 122, sub, 28, '#ffffff').setOrigin(0.5));
-    this.add2(cartoonText(this, 1890, 74, this.sport === 'volley' ? 'VOLLEYBALL' : 'BASEBALL', 22, '#ffd23f').setOrigin(1, 0.5));
+    const label = this.sport === 'volley' ? 'VOLLEYBALL' : this.sport === 'dance' ? 'DANSE' : 'BASEBALL';
+    this.add2(cartoonText(this, 1890, 74, label, 22, '#ffd23f').setOrigin(1, 0.5));
     this.add2(cartoonText(this, 1890, 40, `Étape ${stepNo} de 4`, 20, '#c9d4ff').setOrigin(1, 0.5));
     const b = button(this, 130, 64, '← RETOUR', 200, 60, () => this.back());
     this.add2(b.c);
@@ -162,7 +171,9 @@ export class TeamSelectScene extends Phaser.Scene {
     const format =
       this.sport === 'volley'
         ? `${s.volleyPoints} points   ·   ${s.volleySets === 3 ? '3 sets' : '1 set'}`
-        : `${s.innings} manche${s.innings > 1 ? 's' : ''}`;
+        : this.sport === 'dance'
+          ? 'Battle en 3 rounds'
+          : `${s.innings} manche${s.innings > 1 ? 's' : ''}`;
     this.add2(cartoonText(this, 960, 900, `Difficulté : ${DIFFICULTY[s.difficulty].label}   ·   ${format}`, 26, '#c9d4ff').setOrigin(0.5));
     this.add2(cartoonText(this, 960, 1010, '← → choisir   ·   ESPACE ou OK : voir les joueurs   ·   ÉCHAP : retour', 24, '#ffffff').setOrigin(0.5));
     this.sel = -1;
@@ -181,11 +192,11 @@ export class TeamSelectScene extends Phaser.Scene {
     const name = this.add2(cartoonText(this, x + W / 2, y + 62, t.name.toUpperCase(), 34, t.colors.secondary).setOrigin(0.5));
     if (name.width > W - 50) name.setScale((W - 50) / name.width);
     // trois personnages de l'équipe
-    const show = this.sport === 'volley' ? this.playersOf(t).slice(0, 3) : [t.defense.SS, t.defense.P, t.defense.CF];
+    const show = this.sport === 'baseball' ? [t.defense.SS, t.defense.P, t.defense.CF] : this.playersOf(t).slice(0, 3);
     const spread = Math.min(150, (W - 40) / 3);
     const row: CartoonRig[] = [];
     show.forEach((c, k) => {
-      const r = new CartoonRig(this, lookFor(c, t, { detail: true, volley: this.sport === 'volley' }));
+      const r = new CartoonRig(this, lookFor(c, t, { detail: true, volley: this.sport === 'volley', dance: this.sport === 'dance' }));
       this.add.existing(r);
       r.baseScale = Math.min(2.1, spread / 52) * (stat.height(c) / 66);
       r.setPosition(x + W / 2 + (k - 1) * spread, y + 470);
@@ -237,8 +248,9 @@ export class TeamSelectScene extends Phaser.Scene {
       const y = 168 + row * (H + 16);
       this.add2(panel(this, x, y, W, H, c.kind === 'dog' ? 0x2a1f5c : 0x0f1a3d, 0.92));
       const volley = this.sport === 'volley';
-      const isCatcher = !volley && t.defense.C.id === c.id;
-      const r = new CartoonRig(this, lookFor(c, t, { detail: true, catcherGear: isCatcher, volley }));
+      const dance = this.sport === 'dance';
+      const isCatcher = this.sport === 'baseball' && t.defense.C.id === c.id;
+      const r = new CartoonRig(this, lookFor(c, t, { detail: true, catcherGear: isCatcher, volley, dance }));
       this.add.existing(r);
       r.baseScale = 1.7 * (stat.height(c) / 66);
       r.setPosition(x + W / 2, y + 210);
@@ -247,7 +259,13 @@ export class TeamSelectScene extends Phaser.Scene {
       this.rigs.push(r);
       const nm = this.add2(cartoonText(this, x + W / 2, y + 238, stat.shortName(c), 24, '#ffffff').setOrigin(0.5));
       if (nm.width > W - 20) nm.setScale((W - 20) / nm.width);
-      const role = volley ? (i < 6 ? 'Sur le terrain' : 'Réserve (entre au service)') : positionsOf(t, c);
+      const role = volley
+        ? i < 6
+          ? 'Sur le terrain'
+          : 'Réserve (entre au service)'
+        : dance
+          ? `Danse au round ${Math.floor(i / 4) + 1}`
+          : positionsOf(t, c);
       const info = this.add2(cartoonText(this, x + W / 2, y + 266, `#${c.number}  ·  ${role}`, 15, '#7fd3ff').setOrigin(0.5));
       if (info.width > W - 16) info.setScale((W - 16) / info.width);
       const bars: [string, number, number][] = [
