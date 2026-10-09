@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DIFFICULTY } from '../config/gameConfig';
-import { ALL_TEAMS, positionsOf, rosterOf, stat, teamById, type TeamConfig } from '../config/teams';
+import { positionsOf, rosterOf, sportTeam, stat, teamsFor, type TeamConfig } from '../config/teams';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
@@ -32,6 +32,10 @@ export class TeamSelectScene extends Phaser.Scene {
   private nextBtn: MenuButton | null = null;
   private sport: 'baseball' | 'volley' = 'baseball';
 
+  private teams() {
+    return teamsFor(this.sport);
+  }
+
   /** Joueuses montrées pour une équipe (au volleyball : sans les chiens). */
   private playersOf(t: TeamConfig) {
     const all = rosterOf(t);
@@ -42,10 +46,12 @@ export class TeamSelectScene extends Phaser.Scene {
     this.sport = data?.sport ?? 'baseball';
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
+    // chaque sport garde ses propres choix (au volleyball : les Nomads au lieu des Baddies)
     const s = Save.settings;
-    this.mine = teamById(s.myTeam);
-    this.opp = teamById(s.opponent);
-    if (this.opp.id === this.mine.id) this.opp = ALL_TEAMS.find((t) => t.id !== this.mine.id)!;
+    const volley = this.sport === 'volley';
+    this.mine = sportTeam(this.sport, volley ? s.volleyTeam : s.myTeam);
+    this.opp = sportTeam(this.sport, volley ? s.volleyOpponent : s.opponent);
+    if (this.opp.id === this.mine.id) this.opp = this.teams().find((t) => t.id !== this.mine.id)!;
     // la scène est réutilisée : on oublie les objets de la visite précédente
     this.page = null;
     this.rigs = [];
@@ -83,13 +89,13 @@ export class TeamSelectScene extends Phaser.Scene {
     Sound.play('select');
     if (this.step === 'mine') {
       this.mine = this.list[this.sel];
-      Save.updateSettings({ myTeam: this.mine.id });
-      if (this.opp.id === this.mine.id) this.opp = ALL_TEAMS.find((t) => t.id !== this.mine.id)!;
+      Save.updateSettings(this.sport === 'volley' ? { volleyTeam: this.mine.id } : { myTeam: this.mine.id });
+      if (this.opp.id === this.mine.id) this.opp = this.teams().find((t) => t.id !== this.mine.id)!;
       this.show('mineRoster');
     } else if (this.step === 'mineRoster') this.show('opp');
     else if (this.step === 'opp') {
       this.opp = this.list[this.sel];
-      Save.updateSettings({ opponent: this.opp.id });
+      Save.updateSettings(this.sport === 'volley' ? { volleyOpponent: this.opp.id } : { opponent: this.opp.id });
       this.show('oppRoster');
     } else this.start();
   }
@@ -127,7 +133,7 @@ export class TeamSelectScene extends Phaser.Scene {
   // ---------------------------------------------------------------- étapes 1 et 3 : liste des équipes
   private buildList() {
     const choosingMine = this.step === 'mine';
-    this.list = choosingMine ? ALL_TEAMS : ALL_TEAMS.filter((t) => t.id !== this.mine.id);
+    this.list = choosingMine ? this.teams() : this.teams().filter((t) => t.id !== this.mine.id);
     const current = choosingMine ? this.mine : this.opp;
     this.header(
       choosingMine ? 1 : 3,
@@ -153,9 +159,11 @@ export class TeamSelectScene extends Phaser.Scene {
       this.frames.push(this.add2(this.add.graphics()));
     });
     const s = Save.settings;
-    this.add2(
-      cartoonText(this, 960, 900, `Difficulté : ${DIFFICULTY[s.difficulty].label}   ·   ${s.innings} manche${s.innings > 1 ? 's' : ''}`, 26, '#c9d4ff').setOrigin(0.5),
-    );
+    const format =
+      this.sport === 'volley'
+        ? `${s.volleyPoints} points   ·   ${s.volleySets === 3 ? '3 sets' : '1 set'}`
+        : `${s.innings} manche${s.innings > 1 ? 's' : ''}`;
+    this.add2(cartoonText(this, 960, 900, `Difficulté : ${DIFFICULTY[s.difficulty].label}   ·   ${format}`, 26, '#c9d4ff').setOrigin(0.5));
     this.add2(cartoonText(this, 960, 1010, '← → choisir   ·   ESPACE ou OK : voir les joueurs   ·   ÉCHAP : retour', 24, '#ffffff').setOrigin(0.5));
     this.sel = -1;
     this.select(Math.max(0, this.list.findIndex((t) => t.id === current.id)));

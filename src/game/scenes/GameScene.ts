@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CONTROLS, DIFFICULTY, FIELD, PACE, PHYSICS, RULES, TIMING_AI, VIEW, type DifficultySettings } from '../config/gameConfig';
-import { ALL_TEAMS, rosterOf, stat, teamById, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
+import { rosterOf, sportTeam, stat, teamsFor, type CharacterDef, type Position, type TeamConfig } from '../config/teams';
 import { Ball, pitchPos, stepBall } from '../entities/Ball';
 import { Fielder } from '../entities/Fielder';
 import { Runner } from '../entities/Runner';
@@ -204,9 +204,9 @@ export class GameScene extends Phaser.Scene {
     this.wantPause = false;
 
     // ton équipe (à domicile) et l'équipe adverse, choisies avant la partie
-    const mine = teamById(s.myTeam);
-    let opp = teamById(s.opponent);
-    if (opp.id === mine.id) opp = ALL_TEAMS.find((t) => t.id !== mine.id)!;
+    const mine = sportTeam('baseball', s.myTeam);
+    let opp = sportTeam('baseball', s.opponent);
+    if (opp.id === mine.id) opp = teamsFor('baseball').find((t) => t.id !== mine.id)!;
     this.field = new FieldRenderer(this, mine, opp);
     this.overlay = this.add.graphics().setDepth(-500);
     this.meter = this.add.graphics().setDepth(2600);

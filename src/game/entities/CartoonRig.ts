@@ -47,6 +47,8 @@ export interface RigLook {
   skin: number;
   hair: number;
   hairStyle: HairStyle;
+  streak: number | null; // mèche d'une autre couleur
+  vibe: 'hyper' | 'calm' | null; // hyper : ne tient pas en place ; calm : bouge peu
   eye: number;
   freckles: boolean;
   beard: boolean;
@@ -93,6 +95,8 @@ export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear
       skin: hex(def.furColor),
       hair: hex(def.furColor),
       hairStyle: 'bob',
+      streak: null,
+      vibe: null,
       eye: 0x3a2412,
       freckles: false,
       beard: false,
@@ -108,6 +112,8 @@ export function lookFor(def: CharacterDef, team: TeamConfig, opts: { catcherGear
     skin: hex(def.skinColor),
     hair: hex(def.hairColor),
     hairStyle: def.hairStyle,
+    streak: def.hairStreak ? hex(def.hairStreak) : null,
+    vibe: def.vibe ?? null,
     eye: hex(def.eyeColor),
     freckles: !!def.freckles,
     beard: !!def.beard,
@@ -386,6 +392,16 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     this.redraw();
   }
 
+  /** Boîte d'une pièce ; les cheveux très longs ont besoin de plus de place. */
+  private boundsOf(name: PartName): [number, number, number, number] {
+    const b = PART_BOUNDS[name];
+    if (this.look.hairStyle === 'veryLong') {
+      if (name === 'hairBack') return [b[0], b[1], b[2], -2];
+      if (name === 'hairFront') return [b[0], b[1], b[2], 68];
+    }
+    return b;
+  }
+
   private gfx(name: PartName): Phaser.GameObjects.Graphics | undefined {
     return (this as unknown as Record<string, Phaser.GameObjects.Graphics | undefined>)[name];
   }
@@ -395,7 +411,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     const g = this.gfx(name);
     const img = this.im[name];
     if (!g || !img) return;
-    const b = PART_BOUNDS[name];
+    const b = this.boundsOf(name);
     const extra = name === 'face' ? '_' + this.expression : '';
     const key = 'rig_' + this.sig + '_' + this.view + '_' + name + extra;
     // toutes les pièces vont dans l'atlas partagé de la scène (quelques canvas au lieu de centaines)
@@ -665,6 +681,45 @@ export class CartoonRig extends Phaser.GameObjects.Container {
           ]);
         }
         if (hs === 'bun') circ(back, hair, 0, oy - 25, 8.5);
+        if (hs === 'shoulder') {
+          poly(back, hair, [
+            { x: -19, y: oy - 6 },
+            { x: 19, y: oy - 6 },
+            { x: 20, y: oy + 16 },
+            { x: 12, y: oy + 19 },
+            { x: -12, y: oy + 19 },
+            { x: -20, y: oy + 16 },
+          ]);
+        }
+        if (hs === 'veryLong') {
+          // jusqu'aux hanches : on voit les cheveux de chaque côté du corps
+          poly(back, hair, [
+            { x: -19, y: oy - 6 },
+            { x: 19, y: oy - 6 },
+            { x: 22, y: oy + 24 },
+            { x: 25, y: oy + 50 },
+            { x: 17, y: oy + 58 },
+            { x: -17, y: oy + 58 },
+            { x: -25, y: oy + 50 },
+            { x: -22, y: oy + 24 },
+          ]);
+        }
+        if (hs === 'looseCurls') {
+          // un peu frisés : petites boucles près de la tête (moins de volume que « curly »)
+          cloud(back, hair, [
+            [-18.5, oy + 1, 4.5],
+            [18.5, oy + 1, 4.5],
+            [-19.5, oy + 9, 4.5],
+            [19.5, oy + 9, 4.5],
+            [-19, oy + 17, 4.3],
+            [19, oy + 17, 4.3],
+            [-14, oy + 23, 4.2],
+            [14, oy + 23, 4.2],
+            [-5.5, oy + 25, 4.2],
+            [5.5, oy + 25, 4.2],
+            [0, oy + 17, 9],
+          ]);
+        }
         if (hs === 'wavy') {
           cloud(back, hair, [
             [-19, oy - 2, 7],
@@ -701,7 +756,7 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       }
       // mèches de devant / coiffure de dos
       if (front) {
-        const sideLen = hs === 'bob' ? 16 : hs === 'long' || hs === 'wavy' ? 18 : hs === 'short' || hs === 'curlyShort' ? 2 : 9;
+        const sideLen = this.sideLen();
         poly(hf, hair, [
           { x: -18.5, y: -7 },
           { x: -19.5, y: sideLen * 0.6 },
@@ -738,6 +793,14 @@ export class CartoonRig extends Phaser.GameObjects.Container {
             [-18.5, 2, 3.6],
             [17, -4, 4.2],
             [18.5, 2, 3.6],
+          ]);
+        }
+        if (hs === 'looseCurls') {
+          cloud(hf, hair, [
+            [-17, 7, 3],
+            [-16.5, 12.5, 2.8],
+            [17, 7, 3],
+            [16.5, 12.5, 2.8],
           ]);
         }
         if (hs === 'braid') {
@@ -823,6 +886,38 @@ export class CartoonRig extends Phaser.GameObjects.Container {
             { x: -18, y: 17 },
           ]);
         }
+        if (hs === 'shoulder') {
+          poly(hf, hair, [
+            { x: -19, y: 0 },
+            { x: 19, y: 0 },
+            { x: 19, y: 22 },
+            { x: 0, y: 24 },
+            { x: -19, y: 22 },
+          ]);
+        }
+        if (hs === 'veryLong') {
+          poly(hf, hair, [
+            { x: -19, y: 0 },
+            { x: 19, y: 0 },
+            { x: 22, y: 30 },
+            { x: 22, y: 58 },
+            { x: 0, y: 63 },
+            { x: -22, y: 58 },
+            { x: -22, y: 30 },
+          ]);
+        }
+        if (hs === 'looseCurls') {
+          cloud(hf, hair, [
+            [-13, 8, 6],
+            [0, 11, 7],
+            [13, 8, 6],
+            [-14, 17, 5.5],
+            [14, 17, 5.5],
+            [-7, 24, 5],
+            [7, 24, 5],
+            [0, 20, 7],
+          ]);
+        }
       }
     }
     if (L.volley) {
@@ -838,8 +933,68 @@ export class CartoonRig extends Phaser.GameObjects.Container {
         poly(hf, L.hair, top);
       }
     } else this.drawCap(front);
+    if (L.kind === 'girl' && L.streak !== null) this.drawStreak(front);
     this.drawFace();
     this.drawMask();
+  }
+
+  /** Longueur des mèches de côté (vue de face). */
+  private sideLen() {
+    const hs = this.look.hairStyle;
+    if (hs === 'bob' || hs === 'shoulder') return 16;
+    if (hs === 'long' || hs === 'wavy' || hs === 'veryLong') return 18;
+    if (hs === 'short' || hs === 'curlyShort') return 2;
+    return 9;
+  }
+
+  /** Mèche d'une autre couleur (par exemple : mèche blonde), du côté gauche. */
+  private drawStreak(front: boolean) {
+    const L = this.look;
+    const hf = this.hairFront;
+    const c = L.streak!;
+    if (front) {
+      const sl = this.sideLen();
+      // sur la mèche de côté
+      poly(
+        hf,
+        c,
+        [
+          { x: -18.4, y: -5 },
+          { x: -15.6, y: -4.5 },
+          { x: -15.2, y: sl * 0.85 },
+          { x: -17.4, y: sl * 0.75 },
+        ],
+        1.5,
+      );
+      // sur le dessus (au volleyball, sans casquette)
+      if (L.volley) {
+        poly(
+          hf,
+          c,
+          [
+            { x: -10, y: -17.5 },
+            { x: -5, y: -19 },
+            { x: -8.5, y: -4.5 },
+            { x: -13.5, y: -3.5 },
+          ],
+          1.5,
+        );
+      }
+    } else {
+      const hs = L.hairStyle;
+      const end = hs === 'veryLong' ? 58 : hs === 'long' || hs === 'wavy' ? 31 : hs === 'shoulder' ? 21 : hs === 'bob' ? 16 : 10;
+      poly(
+        hf,
+        c,
+        [
+          { x: -9, y: -16 },
+          { x: -4.5, y: -17 },
+          { x: -3.5, y: end },
+          { x: -8, y: end - 1 },
+        ],
+        1.5,
+      );
+    }
   }
 
   private drawDogHead(front: boolean) {
@@ -1403,6 +1558,22 @@ export class CartoonRig extends Phaser.GameObjects.Container {
       x.bodyY = 2;
       x.armLr = 0.5;
       x.armRr = -0.5;
+    }
+
+    // tempérament au repos : hyper (sautille, change de pied) ou calme (bouge à peine)
+    if (this.look.vibe && this.moveSpeed <= 0.5 && !this.action && this.pose !== 'crouch') {
+      if (this.look.vibe === 'hyper') {
+        const h = this.time * 8.5;
+        x.bodyY -= Math.abs(Math.sin(h)) * 5;
+        x.legLr += Math.sin(h) * 0.22;
+        x.legRr += Math.sin(h) * 0.22;
+        x.armLr += Math.sin(h * 0.5) * 0.35;
+        x.armRr += Math.sin(h * 0.5) * 0.35;
+        x.headR = Math.sin(h * 0.5) * 0.08;
+      } else {
+        x.bodyY = (this.pose === 'ready' ? 2 : 0) + Math.sin(this.time * 1.2) * 0.4;
+        x.headR = 0;
+      }
     }
 
     // course

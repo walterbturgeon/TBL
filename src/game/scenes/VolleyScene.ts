@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DIFFICULTY, type DifficultySettings } from '../config/gameConfig';
-import { ALL_TEAMS, rosterOf, stat, teamById, type CharacterDef, type TeamConfig } from '../config/teams';
+import { rosterOf, sportTeam, stat, teamsFor, type CharacterDef, type TeamConfig } from '../config/teams';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Stadium } from '../audio/Stadium';
@@ -36,6 +36,8 @@ class VPlayer {
   rush = 1;
   private lastSx = 0;
   private lastSy = 0;
+  private clock = Math.random() * 10;
+  private idleMix = 0; // 0 = en mouvement, 1 = au repos depuis un moment
 
   constructor(scene: Phaser.Scene, def: CharacterDef, team: TeamConfig, side: SideId, x: number, y: number) {
     this.def = def;
@@ -82,9 +84,20 @@ class VPlayer {
       this.rig.facing = this.side === 'L' ? 1 : -1;
       this.rig.setView('front');
     }
-    this.rig.setPosition(s.x, s.y);
-    this.rig.applyScale(s.s);
-    this.rig.setDepth(s.y);
+    // une joueuse « hyper » ne tient pas en place : au repos, elle fait des petits pas autour de sa place
+    let d = s;
+    if (this.def.kind === 'girl' && this.def.vibe === 'hyper') {
+      this.clock += dt;
+      this.idleMix = sp < 0.3 ? Math.min(1, this.idleMix + dt * 2) : Math.max(0, this.idleMix - dt * 5);
+      if (this.idleMix > 0) {
+        const jx = Math.sin(this.clock * 1.9 + 1) * 0.25 * this.idleMix;
+        const jy = Math.sin(this.clock * 2.6) * 0.45 * this.idleMix;
+        d = vproject(this.x + jx, this.y + jy, 0);
+      }
+    }
+    this.rig.setPosition(d.x, d.y);
+    this.rig.applyScale(d.s);
+    this.rig.setDepth(d.y);
     this.rig.tick(dt);
   }
 
@@ -189,9 +202,10 @@ export class VolleyScene extends Phaser.Scene {
     this.serveInfo = null;
     this.touch = isTouch();
 
-    const mine = teamById(s.myTeam);
-    let opp = teamById(s.opponent);
-    if (opp.id === mine.id) opp = ALL_TEAMS.find((t) => t.id !== mine.id)!;
+    // au volleyball : équipes à part (les Nomads au lieu des Baddies)
+    const mine = sportTeam('volley', s.volleyTeam);
+    let opp = sportTeam('volley', s.volleyOpponent);
+    if (opp.id === mine.id) opp = teamsFor('volley').find((t) => t.id !== mine.id)!;
     this.court = new CourtRenderer(this, mine, opp);
     this.L = this.makeSide('L', mine, true);
     this.R = this.makeSide('R', opp, false);
@@ -838,7 +852,12 @@ export class VolleyScene extends Phaser.Scene {
     if (human) {
       this.court.cheer(0.5);
       if (!Stadium.play('kidsCheer', { dur: 3 })) Sound.play('applause', 0.5);
-      for (const p of winner.court) if (chance(0.5)) p.rig.play('celebrate', 0.8);
+      for (const p of winner.court) {
+        // Helena reste calme ; Mia fête chaque point
+        const vibe = p.def.kind === 'girl' ? p.def.vibe : undefined;
+        if (vibe === 'calm') p.rig.play('nod');
+        else if (vibe === 'hyper' || chance(0.5)) p.rig.play('celebrate', 0.8);
+      }
     } else Sound.play('crowd', 0.5);
     // changement de service : l'équipe qui gagne le point en recevant fait sa rotation
     if (winner !== this.serving) {

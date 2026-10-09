@@ -30,8 +30,12 @@ export interface TeamColors {
   capLogo: string;
 }
 
+export type Sport = 'baseball' | 'volley';
+
 export interface TeamConfig {
   id: string;
+  /** sports où l'équipe joue (absent : les deux) */
+  sports?: Sport[];
   name: string; // nom long
   short: string; // nom au tableau de pointage
   colors: TeamColors;
@@ -46,6 +50,7 @@ const byId = (id: string) => PLAYERS.find((p) => p.id === id)!;
 
 export const TURCAU: TeamConfig = {
   id: 'turcau',
+  sports: ['baseball'], // au volleyball, ce sont les Nomads
   name: 'Les Baddies',
   short: 'BADDIES',
   logoLetter: 'B',
@@ -280,6 +285,53 @@ export const ITAQ: TeamConfig = {
   lineup: [ITQ.emilie, ITQ.laurie, ITQ.renaud, ITQ.xavier, ITQ.maryse, ITQ.felix, ITQ.coralie, ITQ.annabelle, ITQ.olivier],
 };
 
+// ---------------- Les Nomads (volleyball seulement) ----------------
+// Fournis par l'utilisateur : les noms, les cheveux, la peau de Marley, Mia qui ne tient pas en place, Helena calme.
+// Ophélie, Océane et Lily : mêmes grandeurs, yeux, numéros et statistiques que chez les Baddies.
+// Les autres grandeurs (65 po), les yeux, les numéros, les statistiques et les couleurs sont des propositions.
+const fromBaddies = (id: string, extra: Partial<PlayerConfig>): PlayerConfig => ({ ...byId(id), id: 'nom_' + id, name: byId(id).name.split(' ')[0], ...extra });
+const NOM = {
+  ophelie: fromBaddies('ophelie', { hairStyle: 'long', hairStreak: '#f2cf5b' }), // brun lisse, mèche blonde
+  oceane: fromBaddies('oceane', { hairStyle: 'long' }), // brun lisse
+  lily: fromBaddies('lily', { hairStyle: 'wavy' }), // brun vagué
+  valentina: rival('nom_valentina', 'Valentina', 4, '#141414', 'looseCurls', 6, 6, 7, 65, { expression: 'happy', personality: 'Nomade' }),
+  nebai: rival('nom_nebai', 'Nebai', 11, '#5a3418', 'long', 6, 7, 6, 65, { expression: 'happy', personality: 'Nomade' }),
+  alicia: rival('nom_alicia', 'Alicia', 13, '#6b3e1f', 'veryLong', 7, 6, 6, 65, { expression: 'happy', personality: 'Nomade' }),
+  marley: rival('nom_marley', 'Marley', 17, '#141414', 'long', 7, 6, 6, 65, { skinColor: '#8a5634', expression: 'happy', personality: 'Nomade' }),
+  mia: rival('nom_mia', 'Mia', 21, '#8a5530', 'shoulder', 5, 9, 7, 65, { vibe: 'hyper', expression: 'energetic', personality: 'Ne tient pas en place' }),
+  helena: rival('nom_helena', 'Helena', 8, '#f2cf5b', 'long', 6, 5, 8, 65, { vibe: 'calm', expression: 'calm', personality: 'Calme' }),
+};
+
+export const NOMADS: TeamConfig = {
+  id: 'nomads',
+  sports: ['volley'],
+  name: 'Les Nomads',
+  short: 'NOMADS',
+  logoLetter: 'N',
+  colors: {
+    primary: '#7b1e3a', // bordeaux
+    secondary: '#ecd3a5', // sable
+    pants: '#232328',
+    socks: '#ecd3a5',
+    cap: '#7b1e3a',
+    capLogo: '#ecd3a5',
+  },
+  // positions de baseball obligatoires dans le type, mais l'équipe ne joue qu'au volleyball
+  defense: {
+    P: NOM.ophelie,
+    C: NOM.oceane,
+    '1B': NOM.lily,
+    '2B': NOM.valentina,
+    SS: NOM.mia,
+    '3B': NOM.alicia,
+    LF: NOM.nebai,
+    CF: NOM.marley,
+    RF: NOM.helena,
+  },
+  // volleyball : les 6 premières commencent sur le terrain, les 3 autres entrent au service
+  lineup: [NOM.ophelie, NOM.oceane, NOM.lily, NOM.valentina, NOM.mia, NOM.alicia, NOM.nebai, NOM.marley, NOM.helena],
+};
+
 /** Équipes adverses offertes au joueur (menu JOUER). */
 export const OPPONENTS: TeamConfig[] = [VISITORS, OD2026, ECUREUILS, ITAQ];
 
@@ -288,10 +340,21 @@ export function opponentById(id: string): TeamConfig {
 }
 
 /** Toutes les équipes : n'importe laquelle peut être « ton équipe » ou l'adversaire. */
-export const ALL_TEAMS: TeamConfig[] = [TURCAU, ...OPPONENTS];
+export const ALL_TEAMS: TeamConfig[] = [TURCAU, NOMADS, ...OPPONENTS];
 
 export function teamById(id: string): TeamConfig {
   return ALL_TEAMS.find((t) => t.id === id) ?? TURCAU;
+}
+
+/** Équipes d'un sport (au volleyball : les Nomads au lieu des Baddies). */
+export function teamsFor(sport: Sport): TeamConfig[] {
+  return ALL_TEAMS.filter((t) => !t.sports || t.sports.includes(sport));
+}
+
+/** Équipe d'un sport selon son id ; si elle ne joue pas ce sport : la première équipe du sport. */
+export function sportTeam(sport: Sport, id: string): TeamConfig {
+  const list = teamsFor(sport);
+  return list.find((t) => t.id === id) ?? list[0];
 }
 
 /** Tous les personnages d'une équipe, sans doublon : l'ordre au bâton, puis les autres. */

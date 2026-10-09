@@ -4,7 +4,20 @@
 //  Statistiques sur 10. Taille (height) en pouces : 5 pi 10 po = 70.
 // =====================================================================
 
-export type HairStyle = 'ponytail' | 'curly' | 'long' | 'bun' | 'pigtails' | 'bob' | 'braid' | 'wavy' | 'short' | 'curlyShort';
+export type HairStyle =
+  | 'ponytail'
+  | 'curly'
+  | 'long'
+  | 'bun'
+  | 'pigtails'
+  | 'bob'
+  | 'braid'
+  | 'wavy'
+  | 'short'
+  | 'curlyShort'
+  | 'shoulder' // lisses, à la longueur des épaules
+  | 'veryLong' // très très longs
+  | 'looseCurls'; // un peu frisés
 export type Expression =
   | 'confident'
   | 'energetic'
@@ -28,6 +41,7 @@ export interface PlayerConfig {
   height: number; // pouces
   hairColor: string;
   hairStyle: HairStyle;
+  hairStreak?: string; // couleur d'une mèche (par exemple : mèche blonde)
   eyeColor: string;
   skinColor: string;
   freckles?: boolean;
@@ -40,6 +54,7 @@ export interface PlayerConfig {
   hitPhrase?: string; // phrase de bande dessinée quand la personne frappe loin (plus de la moitié du champ)
   expression: Expression; // expression du portrait
   personality: string; // texte court pour le menu
+  vibe?: 'hyper' | 'calm'; // hyper : ne tient pas en place ; calm : bouge peu
   uniformColor?: string; // remplace la couleur de l'équipe pour cette joueuse
 }
 

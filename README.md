@@ -22,7 +22,7 @@ Touches avancées (désactivées par défaut) : voir `CONTROLS` dans `src/game/c
 
 ## Volleyball
 
-Dans le menu, choisis **VOLLEYBALL**. Les mêmes équipes jouent à 6 contre 6, sans Billy ni Stella.
+Dans le menu, choisis **VOLLEYBALL**. Au volleyball, **les Nomads** remplacent les Baddies. Les autres équipes jouent aussi, à 6 contre 6, sans Billy ni Stella.
 
 - **Service :** ESPACE ou OK quand l'aiguille est dans le vert.
 - **Manchette, passe, smash :** ESPACE ou OK quand la balle arrive dans l'anneau. Les FLÈCHES ↑ ↓ visent le smash.
@@ -59,6 +59,7 @@ Ouvre ensuite http://localhost:5173.
 - Joueuses : `src/game/config/players.ts`
 - Billy et Stella : `src/game/config/dogs.ts`
 - Équipes, positions, rotation, ordre au bâton, phrase de bande dessinée de chaque personne pour une longue frappe (`hitPhrase`) : `src/game/config/teams.ts`
+- Les Nomads (volleyball seulement) : `NOM` et `NOMADS` dans `src/game/config/teams.ts`. Le champ `sports` choisit le sport de chaque équipe.
 - Règles, difficulté, vitesses : `src/game/config/gameConfig.ts`
 
 ## Publier sur GitHub Pages

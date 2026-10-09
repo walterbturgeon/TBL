@@ -20,6 +20,8 @@ export interface Settings {
   stadiumSounds: boolean;
   volleyPoints: number; // volleyball : points par set
   volleySets: number; // volleyball : 1 ou 3 sets
+  volleyTeam: string; // volleyball : ton équipe
+  volleyOpponent: string; // volleyball : équipe adverse
 }
 
 export interface CareerLine {
@@ -58,6 +60,8 @@ const DEFAULT_SETTINGS: Settings = {
   stadiumSounds: true,
   volleyPoints: 21,
   volleySets: 1,
+  volleyTeam: 'nomads',
+  volleyOpponent: 'visiteur',
 };
 
 const DEFAULT_RECORDS: Records = {
