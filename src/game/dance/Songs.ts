@@ -137,7 +137,7 @@ export const SONGS: Song[] = [
   // ---- musiques originales dans le style du hip-hop des années 2012-2013 (sans paroles)
   {
     id: 'ville',
-    title: 'Ville Sombre',
+    title: 'Pistache Packin’',
     style: 'Trap 2012',
     bpm: 140,
     swing: 0,
@@ -171,7 +171,7 @@ export const SONGS: Song[] = [
   },
   {
     id: 'glisse',
-    title: 'Glisse Glisse',
+    title: 'Toozie Glide',
     style: 'R&B trap',
     bpm: 84,
     swing: 0.1,
@@ -205,7 +205,7 @@ export const SONGS: Song[] = [
   },
   {
     id: 'dembow',
-    title: 'Dembow de Nuit',
+    title: 'Trip Club Remix',
     style: 'Reggaeton',
     bpm: 96,
     swing: 0,
@@ -237,7 +237,7 @@ export const SONGS: Song[] = [
   },
   {
     id: 'vampire',
-    title: 'Minuit Vampire',
+    title: 'Dracoola',
     style: 'Trap sombre',
     bpm: 136,
     swing: 0,
@@ -271,7 +271,7 @@ export const SONGS: Song[] = [
   },
   {
     id: 'ouest',
-    title: 'Côte Ouest',
+    title: 'M.E.E.D Town',
     style: 'West Coast',
     bpm: 98,
     swing: 0.04,

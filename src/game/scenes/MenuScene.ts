@@ -6,6 +6,7 @@ import { PLAYERS } from '../config/players';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { FieldRenderer } from '../world/FieldRenderer';
 import { Sound } from '../audio/Sound';
+import { DancePreview } from '../dance/Preview';
 import { Save } from '../systems/Save';
 import { button, cartoonText, toggleFullscreen, type MenuButton } from '../ui/ui';
 import { pick, rand } from '../util/math';
@@ -26,6 +27,7 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(300, 15, 26, 61);
+    DancePreview.stop(); // la musique de danse reste dans les écrans de la danse
     this.rigs = []; // les personnages du menu précédent sont détruits
     this.buttons = [];
     new FieldRenderer(this, TURCAU, VISITORS);

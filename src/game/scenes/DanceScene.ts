@@ -3,6 +3,7 @@ import { Sound } from '../audio/Sound';
 import { Stadium } from '../audio/Stadium';
 import { rosterOf, sportTeam, stat, teamsFor, type CharacterDef, type TeamConfig } from '../config/teams';
 import { BeatPlayer } from '../dance/BeatPlayer';
+import { DancePreview } from '../dance/Preview';
 import { DANCE, GRADE_COLOR, GRADE_LABEL, comboMul, type Grade } from '../dance/DanceConfig';
 import { SONGS, ROUNDS, chartOf, sectionAt, type Lane, type Note } from '../dance/Songs';
 import { StageRenderer, teamGlow } from '../dance/StageRenderer';
@@ -174,6 +175,7 @@ export class DanceScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', this.onVis);
       this.player?.stop();
       this.player = null;
+      DancePreview.stop();
     });
   }
 
@@ -455,12 +457,10 @@ export class DanceScene extends Phaser.Scene {
       c.box.strokeRoundedRect(c.x - 8, c.y - 8, c.w + 16, c.h + 16, 24);
     });
     this.stage.setColor(SONGS[i].color);
-    // aperçu : la musique joue à partir du premier round
-    this.player?.stop();
-    this.player = null;
+    // aperçu : la chanson choisie est la seule musique de fond (elle continue si elle joue déjà)
     if (!Sound.ctx) return;
-    this.player = new BeatPlayer(SONGS[i]);
-    this.player.start(this.roundStart(0));
+    DancePreview.play(SONGS[i]);
+    this.player = DancePreview.player;
   }
 
   private roundStart(r: number) {
@@ -472,6 +472,7 @@ export class DanceScene extends Phaser.Scene {
   // ================================================================ battle
   private startBattle() {
     Sound.unlock();
+    DancePreview.stop();
     this.player?.stop();
     this.ui.removeAll(true);
     this.cards = [];
@@ -517,7 +518,6 @@ export class DanceScene extends Phaser.Scene {
     this.energy += (target - this.energy) * Math.min(1, dt * 4);
     this.stage.update(beat, this.energy);
 
-    if (this.phase === 'pick' && p && t > this.roundStart(0) + 8 * 4 * p.spb) p.start(this.roundStart(0)); // aperçu en boucle
     if (playing && p) {
       Progress.add('dance', dt);
       this.onBeats(beat);
@@ -905,6 +905,7 @@ export class DanceScene extends Phaser.Scene {
   private leave() {
     if (this.leaving) return;
     this.leaving = true;
+    DancePreview.stop();
     this.player?.stop();
     this.player = null;
     this.input.keyboard!.removeAllListeners();

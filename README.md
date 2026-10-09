@@ -59,7 +59,8 @@ Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rou
 - Sur un appui **PARFAIT**, l'équipe fait un mouvement de breakdance : ← footwork, ↓ freeze, ↑ headspin, → windmill.
 - Une nouvelle équipe de 4 danseuses monte sur scène à chaque round. L'équipe qui a le plus de points gagne le round.
 - ÉCHAP ou ❚❚ : pause.
-- 8 musiques originales sans paroles : Boom-bap, Funk, Trap, et 5 dans le style du hip-hop de 2012-2013 (trap, R&B avec claquements de doigts, reggaeton, trap sombre, West Coast). Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
+- 8 musiques originales sans paroles : Rue Turcau, Néon Funk, Gros 808, et 5 dans le style du hip-hop de 2012-2013, avec des noms qui rappellent les titres connus (Pistache Packin’, Toozie Glide, Trip Club Remix, Dracoola, M.E.E.D Town). Les mélodies sont originales. Le jeu les joue lui-même : elles sont libres de droits et toujours en rythme avec les flèches.
+- Dans les écrans de la danse (choix des équipes et de la musique), la seule musique de fond est la chanson choisie.
 - Réglages : `src/game/dance/DanceConfig.ts`. Musiques et chorégraphies : `src/game/dance/Songs.ts`.
 
 ## Sons du stade

@@ -5,6 +5,9 @@ import { CartoonRig, lookFor } from '../entities/CartoonRig';
 import { Sound } from '../audio/Sound';
 import { Save } from '../systems/Save';
 import { Progress } from '../systems/Progress';
+import { DancePreview } from '../dance/Preview';
+import { SONGS } from '../dance/Songs';
+import { Stadium } from '../audio/Stadium';
 import { button, cartoonText, onTvBack, panel, statBar, toggleFullscreen, type MenuButton } from '../ui/ui';
 import { hex } from '../util/math';
 
@@ -54,10 +57,17 @@ export class TeamSelectScene extends Phaser.Scene {
     this.sport = data?.sport ?? 'baseball';
     // nouvelle session : la difficulté progressive repart du niveau 1
     Progress.reset(this.sport);
-    // la musique de baseball joue seulement pour le baseball
+    // la musique de baseball joue seulement pour le baseball ; à la danse, la seule musique est la chanson choisie
     if (Sound.ctx) {
-      if (this.sport === 'baseball') Sound.baseballMusic();
-      else Sound.menuMusic();
+      if (this.sport === 'dance') {
+        Sound.stopMusic();
+        Stadium.stopAll(0.4);
+        DancePreview.play(SONGS.find((x) => x.id === Save.settings.danceSong) ?? SONGS[0]);
+      } else {
+        DancePreview.stop();
+        if (this.sport === 'baseball') Sound.baseballMusic();
+        else Sound.menuMusic();
+      }
     }
     this.cameras.main.fadeIn(250, 15, 26, 61);
     this.add.rectangle(960, 540, 1920, 1080, 0x16245a);
