@@ -8,6 +8,7 @@ import { DANCE, GRADE_COLOR, GRADE_LABEL, comboMul, type Grade } from '../dance/
 import { SONGS, ROUNDS, chartOf, sectionAt, type Lane, type Note } from '../dance/Songs';
 import { StageRenderer, teamGlow } from '../dance/StageRenderer';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
+import type { Expression } from '../config/players';
 import { Save } from '../systems/Save';
 import { Progress, atLevel } from '../systems/Progress';
 import { button, cartoonText, onTvBack, panel, toggleFullscreen, type MenuButton } from '../ui/ui';
@@ -96,6 +97,10 @@ export class DanceScene extends Phaser.Scene {
   private leadBusy: Record<Side, number> = { me: -1, ai: -1 };
   private crewBusy: Record<Side, number> = { me: -1, ai: -1 };
   private songT = 0;
+  // danseuse qui fait le mouvement spécial : projecteur, lignes de vitesse, poussière, flash
+  private special: { rig: CartoonRig; expr: Expression; puffT: number; flashed: boolean } | null = null;
+  private fxG!: Phaser.GameObjects.Graphics;
+  private spotImg!: Phaser.GameObjects.Image;
   private bestCombo = 0;
   private counts: Record<Grade, number> = { perfect: 0, great: 0, good: 0, miss: 0 };
   private meter = 0.5;
@@ -166,6 +171,16 @@ export class DanceScene extends Phaser.Scene {
     Stadium.stopAll(0.3);
 
     this.stage = new StageRenderer(this, this.mine, this.opp);
+    this.special = null;
+    this.fxG = this.add.graphics().setDepth(1500);
+    this.spotImg = bakedImage(this, 'dance_spot', [-300, -80, 300, 80], 0.5, 0, 0).setTint(0xffffff).setAlpha(0).setDepth(700);
+    this.spotImg.setBlendMode(Phaser.BlendModes.ADD).setScale(2 * 0.42);
+    bakeTexture(this, 'dance_puff', [-12, -12, 12, 12], 2, (g) => {
+      g.fillStyle(0xd8d0e8, 0.9);
+      g.fillCircle(0, 0, 10);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillCircle(-3, -3, 4);
+    });
     this.stage.setColor(SONGS[this.songIdx].color);
     this.bakeArrows();
     this.buildHighway();
@@ -433,6 +448,70 @@ export class DanceScene extends Phaser.Scene {
     lead?.rig.play('flinch', 0.4);
   }
 
+  /** Effets du mouvement spécial (seulement autour de la danseuse qui le fait). */
+  private updateSpecial(dt: number) {
+    const g = this.fxG;
+    g.clear();
+    const sp = this.special;
+    const a = sp && !!sp.rig.scene ? sp.rig.act : null;
+    if (!sp || !a || !(BREAKS as readonly string[]).includes(a.name)) {
+      if (sp && !!sp.rig.scene) sp.rig.setExpression(sp.expr);
+      this.special = null;
+      this.spotImg.setAlpha(0);
+      return;
+    }
+    const p = a.p;
+    const k = sp.rig.scaleX * (sp.rig.facing || 1); // échelle de la danseuse
+    const x = sp.rig.x;
+    const y = sp.rig.y;
+    this.spotImg.setPosition(x, y).setAlpha(0.75 * Math.min(1, p * 8, (1 - p) * 8));
+    const t = this.time.now / 1000;
+    // lignes de vitesse : 3 arcs qui tournent autour d'un point
+    const arcs = (cx: number, cy: number, rx: number, ry: number, ph: number, alpha: number) => {
+      for (let i = 0; i < 3; i++) {
+        const a0 = ph + i * 2.094;
+        g.lineStyle(5, 0xffffff, 0.75 * alpha);
+        g.beginPath();
+        for (let j = 0; j <= 12; j++) {
+          const an = a0 + j * 0.1;
+          const px = cx + Math.cos(an) * rx;
+          const py = cy + Math.sin(an) * ry;
+          if (j === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+    };
+    const env = (a0: number, b0: number) => Math.max(0, Math.min(1, (p - a0) / 0.05, (b0 - p) / 0.05));
+    if (a.name === 'headspin') {
+      // autour des jambes (elle est sur la tête)
+      arcs(x, y - 80 * k, 34 * k, 9 * k, t * 14, env(0.34, 0.9));
+    } else if (a.name === 'windmill') {
+      arcs(x - 32 * k, y - 30 * k, 32 * k, 16 * k, t * 10, env(0.2, 0.82));
+    } else if (a.name === 'footwork') {
+      // poussière au sol à chaque pas
+      sp.puffT -= dt;
+      if (p > 0.15 && p < 0.86 && sp.puffT <= 0) {
+        sp.puffT = 0.11;
+        const puff = this.add.image(x + (Math.random() * 2 - 1) * 22 * k, y + 4, 'dance_puff').setDepth(y + 1);
+        puff.setScale(0.25 * k / 2.85).setAlpha(0.6);
+        this.tweens.add({ targets: puff, scale: puff.scale * 3, alpha: 0, y: y - 10, duration: 420, onComplete: () => puff.destroy() });
+      }
+    } else if (a.name === 'freeze' && !sp.flashed && p >= 0.26) {
+      // flash au moment de l'arrêt net
+      sp.flashed = true;
+      const fl = this.add.graphics().setDepth(1501).setPosition(x + 8 * k, y - 36 * k);
+      for (let i = 0; i < 12; i++) {
+        const an = (i / 12) * Math.PI * 2;
+        fl.lineStyle(6, 0xffffff, 1);
+        fl.lineBetween(Math.cos(an) * 30 * k, Math.sin(an) * 30 * k, Math.cos(an) * 52 * k, Math.sin(an) * 52 * k);
+      }
+      fl.setScale(0.6);
+      this.tweens.add({ targets: fl, scale: 1.3, alpha: 0, duration: 380, onComplete: () => fl.destroy() });
+      this.stage.pulse(0.28);
+    }
+  }
+
   /** Compte les PARFAIT de suite ; vrai si la série déclenche un breakdance. */
   private countPerfect(side: Side, g: Grade) {
     if (g !== 'perfect') {
@@ -452,8 +531,15 @@ export class DanceScene extends Phaser.Scene {
     const lead = this.crews[side].find((d) => d.front);
     if (lead) {
       lead.rig.play(BREAKS[lane], dur);
+      // visage concentré pendant le mouvement ; effets autour d'elle
+      if (this.special && !!this.special.rig.scene) this.special.rig.setExpression(this.special.expr);
+      this.special = { rig: lead.rig, expr: lead.rig.expression, puffT: 0, flashed: false };
+      lead.rig.setExpression('determined');
       // la meneuse grandit un peu pendant son mouvement : on la remarque
-      const base = lead.rig.scale;
+      // (la taille de départ est la vraie taille, même si la danseuse vient d'apparaître sur scène)
+      const base = lead.rig.baseScale;
+      this.tweens.killTweensOf(lead.rig);
+      lead.rig.setScale(base);
       this.tweens.add({ targets: lead.rig, scale: base * 1.15, duration: 180, yoyo: true, hold: dur * 1000 - 360, ease: 'Back.Out' });
     }
     this.leadBusy[side] = this.songT + dur;
@@ -590,6 +676,7 @@ export class DanceScene extends Phaser.Scene {
     const target = this.phase === 'play' && p ? (sectionAt(p.sections, Math.floor(beat / 4)).kind === 'round' ? 1 : 0.35) : 0.6;
     this.energy += (target - this.energy) * Math.min(1, dt * 4);
     this.stage.update(beat, this.energy);
+    this.updateSpecial(dt);
 
     if (playing && p) {
       Progress.add('dance', dt);

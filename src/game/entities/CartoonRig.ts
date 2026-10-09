@@ -199,6 +199,41 @@ function ell(g: Phaser.GameObjects.Graphics, color: number, x: number, y: number
 }
 
 /** Forme « nuage » : un seul contour autour de plusieurs cercles (boucles de Billy, cheveux frisés). */
+type KeyField = 'legLr' | 'legRr' | 'legLsy' | 'legRsy' | 'armLr' | 'armRr' | 'bodyY' | 'bodyR' | 'headR' | 'bodyX';
+type KeyFrame = [number, Partial<Record<KeyField, number>>];
+
+/**
+ * Images clés : interpolation douce (p de 0 à 1). Un champ absent d'une image clé
+ * prend la valeur de repos (la pose de base).
+ */
+function keyed(x: Record<KeyField, number>, p: number, frames: KeyFrame[]) {
+  const fields = new Set<KeyField>();
+  for (const [, f] of frames) for (const k of Object.keys(f) as KeyField[]) fields.add(k);
+  for (const k of fields) {
+    const rest = x[k];
+    let v = frames[frames.length - 1][1][k] ?? rest;
+    if (p <= frames[0][0]) v = frames[0][1][k] ?? rest;
+    else
+      for (let i = 1; i < frames.length; i++) {
+        if (p > frames[i][0]) continue;
+        const [p0, f0] = frames[i - 1];
+        const [p1, f1] = frames[i];
+        const u = (p - p0) / (p1 - p0 || 1);
+        const sm = u * u * (3 - 2 * u);
+        const v0 = f0[k] ?? rest;
+        const v1 = f1[k] ?? rest;
+        v = v0 + (v1 - v0) * sm;
+        break;
+      }
+    x[k] = v;
+  }
+}
+
+/** Enveloppe : 0 hors de [a, b], 1 au milieu, avec une montée et une descente de largeur w. */
+function band(p: number, a: number, b: number, w = 0.05) {
+  return Math.max(0, Math.min(1, (p - a) / w, (b - p) / w));
+}
+
 /** Rotation en 2D : le corps s'écrase puis se retourne, sans jamais disparaître. */
 function spinOf(ph: number) {
   const c = Math.cos(ph);
@@ -1410,6 +1445,11 @@ export class CartoonRig extends Phaser.GameObjects.Container {
     this.redraw();
   }
 
+  /** Action en cours et son avancement (0 à 1), ou null. */
+  get act(): { name: Action; p: number } | null {
+    return this.action ? { name: this.action, p: Math.min(1, this.actionT / this.actionDur) } : null;
+  }
+
   setExpression(e: Expression) {
     if (e === this.expression) return;
     this.expression = e;
@@ -1817,64 +1857,102 @@ export class CartoonRig extends Phaser.GameObjects.Container {
           }
           break;
         }
-        // ---- breakdance
+        // ---- breakdance (mouvements spéciaux, en plusieurs étapes)
         case 'footwork': {
-          // six-step : accroupie, une main au sol, les jambes balaient en cercle
-          const e = Math.min(1, p * 6, (1 - p) * 6);
-          const ph = this.actionT * 9;
-          x.legLsy = 1 - 0.45 * e;
-          x.legRsy = 1 - 0.45 * e;
-          x.legLr = 0.18 + Math.sin(ph) * 1.1 * e;
-          x.legRr = -0.18 + Math.sin(ph + Math.PI / 2) * 1.1 * e;
-          x.bodyY = 2 + 8 * e;
-          x.bodyR = Math.sin(ph) * 0.15 * e;
-          x.armLr = 0.5 - 0.9 * e;
-          x.armRr = -0.5 - 0.6 * e;
+          // six-step : accroupie sur les mains, les jambes passent par 6 positions autour des mains,
+          // puis un « kick-out » (une jambe tendue), et elle se relève les bras croisés
+          const c = { legLsy: 0.5, legRsy: 0.5, bodyY: 12, armLr: -0.35, armRr: 0.35, headR: 0.2 };
+          keyed(x, p, [
+            [0, {}],
+            [0.1, c],
+            [0.2, { ...c, legLsy: 0.55, legLr: 1.1, legRr: -0.2, bodyX: -4 }],
+            [0.3, { ...c, legRsy: 0.6, legLr: 0.4, legRr: 0.7, armLr: 0.6, bodyX: 3 }],
+            [0.4, { ...c, legLsy: 0.6, legLr: -0.4, legRr: -0.3, bodyX: 6, headR: 0.15 }],
+            [0.5, { ...c, legRsy: 0.55, legLr: -0.2, legRr: -1.1, bodyX: 4 }],
+            [0.6, { ...c, legLsy: 0.6, legLr: -0.7, legRr: -0.4, armRr: -0.6, bodyX: -3 }],
+            [0.7, { ...c, legRsy: 0.6, legLr: 0.3, legRr: 0.4, bodyX: -6, headR: 0.15 }],
+            [0.8, { ...c, legLsy: 1.15, legLr: 1.5, legRr: -0.1, armRr: 0.6, bodyR: 0.3, bodyX: -8, bodyY: 10, headR: -0.1 }],
+            [0.88, { ...c, legLsy: 1.15, legLr: 1.5, legRr: -0.1, armRr: 0.6, bodyR: 0.3, bodyX: -8, bodyY: 10, headR: -0.1 }],
+            [1, { armLr: -0.7, armRr: 0.7, headR: -0.15 }],
+          ]);
+          // petit rebond à chaque pas
+          x.bodyY -= band(p, 0.12, 0.76) * Math.abs(Math.sin(this.actionT * 16)) * 2;
           break;
         }
         case 'windmill': {
-          // moulin : couchée sur le dos, elle roule et ses jambes tournent dans les airs
-          const e = Math.min(1, p * 6, (1 - p) * 6);
-          const ph = this.actionT * 11;
-          x.bodyR = (Math.PI / 2) * e;
-          x.bodyX = -40 * e;
-          x.bodyY = -14 * e;
+          // moulin : elle descend sur une main, roule sur le dos, ses jambes tournent en grand V
+          // et ses bras poussent le sol tour à tour ; puis elle se relève et pointe la foule
+          const back = { bodyR: Math.PI / 2, bodyX: -40, bodyY: -14, legLr: 1.2, legRr: -1.2, armLr: 1.2, armRr: -1.2, headR: 0.3 };
+          keyed(x, p, [
+            [0, {}],
+            [0.1, { legLsy: 0.55, legRsy: 0.55, bodyY: 10, bodyR: -0.35, armLr: -0.7, armRr: -0.3, headR: -0.2 }],
+            [0.2, back],
+            [0.82, back],
+            [0.9, { legLsy: 0.6, legRsy: 0.6, bodyY: 8, armLr: -0.4, armRr: 0.4 }],
+            [1, { armRr: -2.0, armLr: 0.4, headR: -0.12 }],
+          ]);
+          const e = band(p, 0.2, 0.82);
+          const ph = this.actionT * 10;
+          x.bodyR += e * 0.35 * Math.sin(ph);
+          x.bodyY -= e * 6 * Math.abs(Math.sin(ph));
+          x.legLr += e * 0.9 * Math.sin(ph);
+          x.legRr += e * 0.9 * Math.sin(ph);
+          x.armLr += e * 0.8 * Math.max(0, Math.sin(ph));
+          x.armRr -= e * 0.8 * Math.max(0, -Math.sin(ph));
+          x.headR += e * 0.2 * Math.sin(ph);
           x.spinX = 1 - e + e * spinOf(ph);
-          x.legLr = 0.18 + (1.3 + Math.sin(ph) * 0.5) * e;
-          x.legRr = -0.18 - (1.3 + Math.cos(ph) * 0.5) * e;
-          x.armLr = 0.5 + 1.2 * e;
-          x.armRr = -0.5 - 1.2 * e;
-          x.headR = 0.3 * e;
           break;
         }
         case 'headspin': {
-          // sur la tête, les jambes en V, elle tourne vite
-          const e = Math.min(1, p * 7, (1 - p) * 7);
-          const ph = this.actionT * 14;
-          x.bodyR = Math.PI * e;
-          x.bodyY = -88 * e;
+          // accroupie, mains au sol ; bascule sur la tête en boule ; jambes en V ;
+          // elle tourne, jambes en ciseaux et bras en avion ; « crayon » (jambes fermées) plus vite ;
+          // retour sur les pieds et bras en V
+          const up = { bodyR: Math.PI, bodyY: -88 };
+          keyed(x, p, [
+            [0, {}],
+            [0.1, { legLsy: 0.55, legRsy: 0.55, bodyY: 10, armLr: -0.5, armRr: 0.5, headR: 0.25 }],
+            [0.2, { bodyR: Math.PI * 0.5, bodyY: -30, legLsy: 0.55, legRsy: 0.55, armLr: 1.2, armRr: -1.2 }],
+            [0.28, { ...up, legLsy: 0.6, legRsy: 0.6, legLr: 0.3, legRr: -0.3, armLr: 2.6, armRr: -2.6 }],
+            [0.36, { ...up, legLr: 0.75, legRr: -0.75, armLr: 2.6, armRr: -2.6 }],
+            [0.5, { ...up, legLr: 0.75, legRr: -0.75, armLr: 1.6, armRr: -1.6 }],
+            [0.74, { ...up, legLr: 0.75, legRr: -0.75, armLr: 1.6, armRr: -1.6 }],
+            [0.8, { ...up, legLr: 0.08, legRr: -0.08, armLr: 2.7, armRr: -2.7 }],
+            [0.88, { ...up, legLr: 0.08, legRr: -0.08, armLr: 2.7, armRr: -2.7 }],
+            [0.95, { bodyR: Math.PI * 2, bodyY: 2, legLsy: 0.6, legRsy: 0.6, armLr: 1, armRr: -1 }],
+            [1, { bodyR: Math.PI * 2, armLr: 2.4, armRr: -2.4 }],
+          ]);
+          const e = band(p, 0.34, 0.9);
+          // en « crayon », elle tourne plus vite
+          const fast = Math.max(0, this.actionT - 0.78 * this.actionDur) * 9;
+          const ph = this.actionT * 13 + fast;
           x.spinX = 1 - e + e * spinOf(ph);
-          x.legLr = 0.18 + 0.4 * e;
-          x.legRr = -0.18 - 0.4 * e;
-          x.legLsy = 1;
-          x.legRsy = 1;
-          x.armLr = 0.5 + 2.2 * e;
-          x.armRr = -0.5 - 2.2 * e;
+          const sc = band(p, 0.36, 0.74) * 0.25 * Math.sin(ph * 2);
+          x.legLr += sc;
+          x.legRr -= sc;
+          x.bodyY -= e * 3 * Math.abs(Math.sin(ph));
           break;
         }
         case 'freeze': {
-          // freeze : le corps penché presque à l'horizontale sur un bras, les jambes pliées en l'air
-          const e = Math.min(1, p * 8);
-          x.bodyR = -1.15 * e;
-          x.bodyX = 22 * e;
-          x.bodyY = -12 * e;
-          x.armLr = 0.5 + 0.9 * e;
-          x.armRr = -0.5 - 2.0 * e;
-          x.legLr = 0.18 - 1.0 * e;
-          x.legRr = -0.18 - 1.6 * e;
-          x.legLsy = 1 - 0.25 * e;
-          x.legRsy = 1 - 0.25 * e;
-          x.headR = 0.35 * e;
+          // petite vrille, puis arrêt net en « air chair » (un bras tendu au sol, une main sur la hanche,
+          // les jambes pliées en l'air, le regard vers la caméra), puis pose b-boy (bras croisés)
+          const hold = { bodyR: -1.25, bodyX: 22, bodyY: -12, armLr: 0.9, armRr: -2.0, legLr: -1.1, legRr: -1.8, legLsy: 0.7, legRsy: 0.8, headR: 0.5 };
+          keyed(x, p, [
+            [0, {}],
+            [0.1, { legLsy: 0.55, legRsy: 0.55, bodyY: 10, armLr: -0.5, armRr: 0.5 }],
+            [0.26, hold],
+            [0.84, { ...hold, bodyR: -1.2, headR: 0.45 }],
+            [0.92, { legLsy: 0.6, legRsy: 0.6, bodyY: 6 }],
+            [1, { armLr: -0.7, armRr: 0.7, headR: -0.15 }],
+          ]);
+          // vrille d'entrée
+          const sp = band(p, 0.08, 0.26, 0.04);
+          x.spinX = 1 - sp + sp * spinOf(this.actionT * 22);
+          // le « hit » : petit tremblement au moment de l'arrêt
+          const hit = band(p, 0.26, 0.34, 0.01) * (1 - (p - 0.26) / 0.08);
+          x.bodyX += Math.sin(this.actionT * 90) * 2.5 * hit;
+          x.headR += Math.sin(this.actionT * 70) * 0.05 * hit;
+          // respiration pendant la pose
+          x.bodyY += band(p, 0.34, 0.84) * Math.sin(this.actionT * 3) * 0.8;
           break;
         }
         case 'danceDown': {
