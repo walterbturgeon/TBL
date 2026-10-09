@@ -108,6 +108,7 @@ export class DanceScene extends Phaser.Scene {
   private glows: Phaser.GameObjects.Image[] = [];
   private highway!: Phaser.GameObjects.Container;
   private pads!: Phaser.GameObjects.Container; // bouton pause et zones de toucher (téléphone)
+  private padArrows: Phaser.GameObjects.Image[] = [];
   private pauseBox: Phaser.GameObjects.Container | null = null;
   private buttons: MenuButton[] = [];
   private sel = 0;
@@ -135,6 +136,7 @@ export class DanceScene extends Phaser.Scene {
     this.buttons = [];
     this.cards = [];
     this.receptors = [];
+    this.padArrows = [];
     this.glows = [];
     this.songIdx = Math.max(0, SONGS.findIndex((x) => x.id === s.danceSong));
     this.resetScores();
@@ -286,15 +288,22 @@ export class DanceScene extends Phaser.Scene {
     if (this.touch) {
       const pb = cartoonText(this, 50, 50, '❚❚', 40, '#ffffff').setOrigin(0.5);
       this.pads.add(pb);
+      // grandes flèches de couleur (les mêmes que dans la piste) : faciles à lire sur un téléphone
+      this.padArrows = [];
       DANCE.laneColors.forEach((c, i) => {
         const x = 240 + i * 480;
         const pad = this.add.graphics();
-        pad.fillStyle(c, 0.28);
-        pad.fillRoundedRect(x - 230, 1012, 460, 62, 18);
-        pad.lineStyle(3, c, 0.8);
-        pad.strokeRoundedRect(x - 230, 1012, 460, 62, 18);
-        const t = cartoonText(this, x, 1043, DANCE.laneSymbols[i], 40, '#ffffff').setOrigin(0.5);
-        this.pads.add([pad, t]);
+        pad.fillStyle(0x05030c, 0.55);
+        pad.fillRoundedRect(x - 230, 976, 460, 100, 22);
+        pad.fillStyle(c, 0.3);
+        pad.fillRoundedRect(x - 230, 976, 460, 100, 22);
+        pad.lineStyle(5, c, 1);
+        pad.strokeRoundedRect(x - 230, 976, 460, 100, 22);
+        const a = bakedImage(this, 'darrow_' + i, ARROW_B, 2, x, 1026);
+        a.rotation = ARROW_ROT[i];
+        a.setScale(0.5 * 1.05);
+        this.pads.add([pad, a]);
+        this.padArrows.push(a);
       });
     }
     this.refreshHud();
@@ -351,11 +360,12 @@ export class DanceScene extends Phaser.Scene {
       for (const d of this.crews[side]) d.rig.destroy();
       const team = side === 'me' ? this.mine : this.opp;
       const cx = side === 'me' ? 430 : 1490;
+      const up = this.touch ? 45 : 0;
       const spots = [
-        { x: cx - 215, y: 805, front: false },
-        { x: cx + 215, y: 805, front: false },
-        { x: cx, y: 785, front: false },
-        { x: cx, y: 1000, front: true },
+        { x: cx - 215, y: 805 - up, front: false },
+        { x: cx + 215, y: 805 - up, front: false },
+        { x: cx, y: 785 - up, front: false },
+        { x: cx, y: 1000 - up, front: true },
       ];
       // la première du groupe est devant (la meneuse)
       const defs = this.members(team, round);
@@ -719,6 +729,12 @@ export class DanceScene extends Phaser.Scene {
     r.setScale(0.6);
     this.tweens.add({ targets: gl, alpha: 0, scale: 1.6 / 2, duration: 220 });
     this.tweens.add({ targets: r, scale: 0.5, duration: 120 });
+    const pa = this.padArrows[lane];
+    if (pa) {
+      this.tweens.killTweensOf(pa);
+      pa.setScale(0.5 * 1.3);
+      this.tweens.add({ targets: pa, scale: 0.5 * 1.05, duration: 160 });
+    }
   }
 
   private banner(text: string, sub: string, color: string, seconds: number) {
