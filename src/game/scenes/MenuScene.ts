@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { VERSION } from '../config/gameConfig';
-import { TURCAU, VISITORS } from '../config/teams';
+import { KUNITS, NOMADS, TURCAU, type CharacterDef, type TeamConfig } from '../config/teams';
 import { BILLY, STELLA } from '../config/dogs';
-import { PLAYERS } from '../config/players';
 import { CartoonRig, lookFor } from '../entities/CartoonRig';
-import { FieldRenderer } from '../world/FieldRenderer';
+import { OlympicRenderer } from '../world/OlympicRenderer';
+import { bakeTexture, bakedImage } from '../util/bake';
 import { Sound } from '../audio/Sound';
 import { DancePreview } from '../dance/Preview';
 import { Save } from '../systems/Save';
@@ -23,15 +23,28 @@ export class MenuScene extends Phaser.Scene {
   private rigs: CartoonRig[] = [];
   private billy!: CartoonRig;
   private stella!: CartoonRig;
+  private volley: CartoonRig[] = [];
+  private dancers: CartoonRig[] = [];
   private actT = 0;
+  private danceT = 0;
+  private clock = 0;
+  // ballon de volleyball qui passe d'une joueuse à l'autre
+  private vball!: Phaser.GameObjects.Image;
+  private vT = 0;
+  private vFrom = 0;
 
   create() {
     this.cameras.main.fadeIn(300, 15, 26, 61);
     DancePreview.stop(); // la musique de danse reste dans les écrans de la danse
     this.rigs = []; // les personnages du menu précédent sont détruits
     this.buttons = [];
-    new FieldRenderer(this, TURCAU, VISITORS);
-    this.add.rectangle(960, 540, 1920, 1080, 0x0f1a3d, 0.5);
+    this.volley = [];
+    this.dancers = [];
+    this.clock = 0;
+    this.vT = 0;
+    this.vFrom = 0;
+    // page d'accueil olympique : un coin pour chaque sport
+    new OlympicRenderer(this);
 
     // logo
     const logo = this.add.container(960, 230);
@@ -80,13 +93,50 @@ export class MenuScene extends Phaser.Scene {
     logo.add([ball, t1, t2]);
     this.tweens.add({ targets: logo, y: 240, angle: 1.2, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
 
-    // Billy et Stella
-    this.billy = this.addRig(BILLY, 330, 930, 3.3, false);
-    this.stella = this.addRig(STELLA, 1590, 930, 3.3, true);
+    // coin baseball (à gauche) : Billy au monticule et Stella derrière le marbre
+    this.billy = this.addRig(BILLY, 230, 930, 2.9, false, TURCAU);
+    this.stella = this.addRig(STELLA, 440, 955, 2.9, true, TURCAU);
     this.stella.showMask(false);
-    // les joueuses
-    const step = 96;
-    PLAYERS.forEach((p, i) => this.addRig(p, 960 + (i - (PLAYERS.length - 1) / 2) * step, 1062, 1.65, false));
+    // coin volleyball (à droite) : deux Nomads de chaque côté du petit filet
+    const nom = NOMADS.lineup;
+    this.volley = [this.addRig(nom[0], 1460, 935, 2.4, false, NOMADS, 'volley'), this.addRig(nom[4], 1720, 935, 2.4, false, NOMADS, 'volley')];
+    this.volley[0].facing = 1;
+    this.volley[1].facing = -1;
+    bakeTexture(this, 'menu_vball', [-12, -12, 12, 12], 3, (g) => {
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(0, 0, 10);
+      g.fillStyle(0xffd23f, 1);
+      g.slice(0, 0, 10, -2.2, -1.0, false);
+      g.fillPath();
+      g.fillStyle(0x3f7fd6, 1);
+      g.slice(0, 0, 10, 0.4, 1.6, false);
+      g.fillPath();
+      g.lineStyle(2.6, 0x141414, 1);
+      g.strokeCircle(0, 0, 10);
+    });
+    this.vball = bakedImage(this, 'menu_vball', [-12, -12, 12, 12], 3, 1460, 800).setScale(1.6 / 3).setDepth(2000);
+    // coin danse (en bas, au centre) : les K-Units dansent sur la musique
+    const crew = KUNITS.lineup.slice(0, 6);
+    crew.forEach((p, i) => {
+      const r = this.addRig(p, 960 + (i - (crew.length - 1) / 2) * 110, 1060, 1.5, false, KUNITS, 'dance');
+      r.groove = 1;
+      this.dancers.push(r);
+    });
+    // noms des coins
+    cartoonText(this, 330, 1040, 'BASEBALL', 30, '#ffd23f').setOrigin(0.5);
+    cartoonText(this, 1590, 1040, 'VOLLEYBALL', 30, '#ffd23f').setOrigin(0.5);
+    // toucher un coin = aller à ce sport
+    const zone = (x: number, y: number, w: number, h: number, sport: string) =>
+      this.add
+        .zone(x, y, w, h)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => {
+          Sound.play('select');
+          this.go('TeamSelect', { sport });
+        });
+    zone(330, 880, 520, 360, 'baseball');
+    zone(1590, 880, 560, 360, 'volley');
+    zone(960, 1020, 720, 120, 'dance');
 
     // boutons
     const labels: [string, () => void][] = [
@@ -105,8 +155,12 @@ export class MenuScene extends Phaser.Scene {
 
     const rec = Save.records();
     cartoonText(this, 30, 1050, `v${VERSION}`, 18, '#c9d4ff').setOrigin(0, 0.5);
-    if (rec.gamesPlayed > 0)
-      cartoonText(this, 960, 892, `Fiche : ${rec.wins} V – ${rec.losses} D${rec.ties ? ` – ${rec.ties} N` : ''}`, 24, '#ffd23f').setOrigin(0.5);
+    // fiches des 3 sports (en haut à gauche)
+    const fiches: string[] = [];
+    if (rec.gamesPlayed > 0) fiches.push(`Baseball ${rec.wins}-${rec.losses}`);
+    if ((rec.volleyWins ?? 0) + (rec.volleyLosses ?? 0) > 0) fiches.push(`Volleyball ${rec.volleyWins ?? 0}-${rec.volleyLosses ?? 0}`);
+    if ((rec.danceWins ?? 0) + (rec.danceLosses ?? 0) > 0) fiches.push(`Danse ${rec.danceWins ?? 0}-${rec.danceLosses ?? 0}`);
+    if (fiches.length) cartoonText(this, 30, 140, `Fiches (V-D) :\n${fiches.join('\n')}`, 22, '#ffffff').setOrigin(0, 0);
     cartoonText(this, 1890, 1050, 'F : plein écran', 18, '#c9d4ff').setOrigin(1, 0.5);
     const help = cartoonText(this, 960, 396, '↑ ↓ puis ENTRÉE', 20, '#c9d4ff').setOrigin(0.5);
     this.tweens.add({ targets: help, alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
@@ -141,10 +195,11 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  private addRig(def: Parameters<typeof lookFor>[0], x: number, y: number, scale: number, catcher: boolean) {
-    const r = new CartoonRig(this, lookFor(def, TURCAU, { detail: true, catcherGear: catcher }));
+  private addRig(def: CharacterDef, x: number, y: number, scale: number, catcher: boolean, team: TeamConfig, outfit?: 'volley' | 'dance') {
+    const r = new CartoonRig(this, lookFor(def, team, { detail: true, catcherGear: catcher, volley: outfit === 'volley', dance: outfit === 'dance' }));
     this.add.existing(r);
     r.setPosition(x, y);
+    r.setDepth(y);
     r.baseScale = scale * (def.kind === 'dog' ? def.heightScale : def.height / 66);
     r.applyScale(1);
     this.rigs.push(r);
@@ -182,22 +237,58 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_t: number, dms: number) {
-    const dt = dms / 1000;
+    const dt = Math.min(0.05, dms / 1000);
+    this.clock += dt;
+    // les danseuses suivent le rythme de la musique du menu (100 temps par minute)
+    const beat = (this.clock * 100) / 60;
+    for (const d of this.dancers) d.beat = beat;
     for (const r of this.rigs) r.tick(dt);
+
+    // baseball : Billy et Stella s'amusent
     this.actT -= dt;
     if (this.actT <= 0) {
       this.actT = rand(1.4, 2.6);
-      const who = pick([0, 1, 2]);
-      if (who === 0) {
-        this.billy.play(pick(['celebrate', 'shakeFur', 'nod'] as const));
+      if (Math.random() < 0.5) {
+        this.billy.play(pick(['windup', 'celebrate', 'shakeFur', 'nod'] as const));
         this.billy.wag(1.2);
-      } else if (who === 1) {
-        this.stella.play(pick(['paw', 'nod', 'shakeHead'] as const));
-        this.stella.wag(1);
       } else {
-        const g = pick(this.rigs.slice(2));
-        g.play('celebrate', 1);
+        this.stella.play(pick(['paw', 'nod', 'catch'] as const));
+        this.stella.wag(1);
       }
+    }
+
+    // danse : un pas sur un temps sur deux
+    const b = Math.floor(beat);
+    if (b !== this.danceT) {
+      this.danceT = b;
+      if (b % 2 === 0) {
+        const moves = ['danceL', 'danceR', 'danceUp', 'danceDown'] as const;
+        const m = moves[Math.floor(b / 2) % 4];
+        // de temps en temps, un mouvement de breakdance
+        const brk = b % 16 === 8 ? pick(['headspin', 'windmill', 'freeze'] as const) : null;
+        this.dancers.forEach((d, i) => {
+          if (brk && i === 2) d.play(brk, 1.2);
+          else d.play(m, 0.45);
+        });
+      }
+    }
+
+    // volleyball : le ballon passe par-dessus le filet, d'une joueuse à l'autre
+    const flight = 1.3;
+    this.vT += dt;
+    if (this.vT >= flight) {
+      this.vT -= flight;
+      this.vFrom = 1 - this.vFrom;
+      const hitter = this.volley[this.vFrom];
+      hitter?.play(pick(['bump', 'set', 'bump'] as const));
+    }
+    const a = this.volley[this.vFrom];
+    const c = this.volley[1 - this.vFrom];
+    if (a && c) {
+      const u = this.vT / flight;
+      this.vball.x = a.x + (c.x - a.x) * u;
+      this.vball.y = 820 - Math.sin(u * Math.PI) * 190;
+      this.vball.rotation += dt * 6;
     }
   }
 }

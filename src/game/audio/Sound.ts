@@ -44,7 +44,7 @@ class SoundEngine {
   private music!: GainNode;
   private noise!: AudioBuffer;
   private musicOn = false;
-  private musicKind: 'organ' | 'chill' = 'organ';
+  private musicKind: 'organ' | 'olympic' = 'organ';
   private musicTimer: number | null = null;
   private nextNoteTime = 0;
   private step = 0;
@@ -127,11 +127,11 @@ class SoundEngine {
     Stadium.setVolumes(music, sfx, muted);
   }
 
-  /** Musique des menus : un air calme (pas de baseball : il est pour tous les sports). */
+  /** Musique des menus : thème olympique (cuivres, timbales, tambour) pour tous les sports. */
   menuMusic() {
     Stadium.stopAll(0.5); // aucun son du stade de baseball dans les menus
     this.ambience(false);
-    this.startMusic('chill');
+    this.startMusic('olympic');
   }
 
   /** Musique du baseball (avant la partie) : la chanson de 1908 si elle charge, sinon l'orgue synthétisé. */
@@ -422,8 +422,8 @@ class SoundEngine {
   }
 
   // ---------------------------------------------------------- musique
-  /** Musique synthétisée en boucle : organ = orgue de stade (baseball) ; chill = air calme des menus. */
-  startMusic(kind: 'organ' | 'chill' = 'organ') {
+  /** Musique synthétisée en boucle : organ = orgue de stade (baseball) ; olympic = thème des menus. */
+  startMusic(kind: 'organ' | 'olympic' = 'organ') {
     if (!this.ctx) return;
     if (this.musicOn && this.musicKind === kind) return;
     this.stopMusic();
@@ -442,7 +442,7 @@ class SoundEngine {
 
   private schedule() {
     if (!this.ctx || !this.musicOn) return;
-    if (this.musicKind === 'chill') return this.scheduleChill();
+    if (this.musicKind === 'olympic') return this.scheduleOlympic();
     const spb = 60 / 116 / 2; // croches à 116 bpm
     // progression I – vi – IV – V (do majeur), deux variations de mélodie
     const chords = [
@@ -479,36 +479,143 @@ class SoundEngine {
     }
   }
 
-  /** Air calme des menus : piano doux, basse ronde, petit rythme (la mineur, 92 bpm). */
-  private scheduleChill() {
+  /**
+   * Thème olympique (composition originale) : fanfare de cuivres, trompette, timbales et tambour de marche.
+   * Do majeur, 100 temps par minute, 8 mesures en boucle.
+   */
+  private scheduleOlympic() {
     const ctx = this.ctx!;
-    const spb = 60 / 92 / 4; // doubles-croches à 92 bpm
+    const spb = 60 / 100 / 4; // doubles-croches à 100 bpm
+    // accords (do, fa, sol, do / la mineur, fa, sol, do)
     const chords = [
-      [57, 60, 64, 67],
-      [53, 57, 60, 64],
-      [48, 52, 55, 59],
-      [55, 59, 62, 65],
+      [48, 60, 64, 67],
+      [53, 60, 65, 69],
+      [55, 59, 62, 67],
+      [48, 60, 64, 67],
+      [57, 60, 64, 69],
+      [53, 60, 65, 69],
+      [55, 59, 62, 67],
+      [48, 60, 64, 72],
     ];
-    const melody = [0, -1, -1, 2, -1, -1, 1, -1, -1, -1, 3, -1, 2, -1, -1, -1];
+    // mélodie de trompette : [pas, note MIDI, durée en pas]
+    const melody: [number, number, number][][] = [
+      [[0, 67, 3], [3, 72, 3], [6, 76, 2], [8, 79, 6]],
+      [[0, 81, 4], [4, 79, 2], [6, 77, 2], [8, 76, 4], [12, 77, 4]],
+      [[0, 74, 3], [3, 67, 3], [6, 71, 2], [8, 74, 6]],
+      [[0, 72, 8], [8, 76, 4], [12, 79, 4]],
+      [[0, 81, 3], [3, 76, 3], [6, 72, 2], [8, 76, 6]],
+      [[0, 77, 3], [3, 81, 3], [6, 84, 2], [8, 81, 6]],
+      [[0, 79, 4], [4, 77, 2], [6, 76, 2], [8, 74, 4], [12, 71, 4]],
+      [[0, 72, 12]],
+    ];
     while (this.nextNoteTime < ctx.currentTime + 0.25) {
       const t = this.nextNoteTime;
-      const bar = Math.floor(this.step / 16) % 4;
+      const barN = Math.floor(this.step / 16);
+      const bar = barN % 8;
       const s = this.step % 16;
       const ch = chords[bar];
-      // basse ronde
-      if (s === 0 || s === 10) this.tone('sine', mtof(ch[0] - 24), mtof(ch[0] - 24), t, spb * 5, 0.3, this.music);
-      // accord de piano doux
-      if (s === 0 || s === 7) for (const n of ch) this.tone('sine', mtof(n), mtof(n), t, spb * 6, 0.04, this.music);
-      // petite mélodie (une mesure sur deux)
-      const m = melody[s];
-      if (m >= 0 && Math.floor(this.step / 16) % 2 === 1) this.tone('triangle', mtof(ch[m] + 12), mtof(ch[m] + 12), t, spb * 2, 0.05, this.music);
-      // grosse caisse douce et charleston
-      if (s === 0 || s === 8) this.tone('sine', 120, 45, t, 0.18, 0.25, this.music);
-      if (s === 4 || s === 12) this.burst(t, 0.06, 0.06, 'bandpass', 1800, 0.8, undefined, this.music);
-      if (s % 2 === 0) this.burst(t, 0.015, 0.025, 'highpass', 8000, 0.7, undefined, this.music);
+      // fanfare de cuivres : long, court, long
+      if (s === 0) this.brass(t, ch.slice(1), spb * 5, 0.09);
+      if (s === 6) this.brass(t, ch.slice(1), spb * 1.5, 0.07);
+      if (s === 8) this.brass(t, ch.slice(1), spb * 7, 0.08);
+      // trompette (la mélodie entre au 2e tour : le premier tour présente les cuivres)
+      if (barN >= 8 || bar >= 4) for (const [st, note, len] of melody[bar]) if (st === s) this.trumpet(t, mtof(note), spb * len, 0.09);
+      // basse et timbales sur les temps 1 et 3
+      if (s === 0 || s === 8) {
+        this.tone('triangle', mtof(ch[0] - 12), mtof(ch[0] - 12), t, spb * 6, 0.3, this.music);
+        this.timpani(t, mtof(s === 0 ? ch[0] - 12 : ch[0] - 5), 0.5);
+      }
+      // roulement de timbales à la fin de chaque phrase de 4 mesures
+      if (bar % 4 === 3 && s >= 12) {
+        this.timpani(t, mtof(43), 0.12 + (s - 12) * 0.05);
+        this.timpani(t + spb / 2, mtof(43), 0.1 + (s - 12) * 0.05);
+      }
+      // tambour de marche
+      if (s === 4 || s === 12) this.burst(t, 0.09, 0.13, 'bandpass', 1900, 0.8, undefined, this.music);
+      if (s === 14 || s === 15) this.burst(t, 0.04, 0.04, 'bandpass', 2100, 0.9, undefined, this.music);
+      // cymbale au début de chaque phrase
+      if (s === 0 && bar % 4 === 0) this.burst(t, 1.2, 0.05, 'highpass', 6000, 0.6, undefined, this.music);
       this.nextNoteTime += spb;
       this.step++;
     }
+  }
+
+  /** Accord de cuivres : dents de scie adoucies, attaque un peu lente. */
+  private brass(t: number, notes: number[], dur: number, v: number) {
+    const ctx = this.ctx!;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(900, t);
+    f.frequency.linearRampToValueAtTime(2200, t + 0.08);
+    f.frequency.linearRampToValueAtTime(1400, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.04);
+    g.gain.setValueAtTime(v, t + dur * 0.8);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.08);
+    f.connect(g);
+    g.connect(this.music);
+    for (const n of notes) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = mtof(n);
+      o.detune.value = (Math.random() - 0.5) * 10;
+      o.connect(f);
+      o.start(t);
+      o.stop(t + dur + 0.1);
+    }
+  }
+
+  /** Trompette : dent de scie filtrée, avec un léger vibrato. */
+  private trumpet(t: number, freq: number, dur: number, v: number) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(freq * 0.98, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.04);
+    const lfo = ctx.createOscillator();
+    const lg = ctx.createGain();
+    lfo.frequency.value = 5.5;
+    lg.gain.setValueAtTime(0, t);
+    lg.gain.linearRampToValueAtTime(freq * 0.008, t + Math.min(0.3, dur));
+    lfo.connect(lg);
+    lg.connect(o.frequency);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 2600;
+    f.Q.value = 1.5;
+    const g = ctx.createGain();
+    const len = Math.max(0.1, dur * 0.92);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.03);
+    g.gain.setValueAtTime(v * 0.85, t + len * 0.85);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.06);
+    o.connect(f);
+    f.connect(g);
+    g.connect(this.music);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + len + 0.1);
+    lfo.stop(t + len + 0.1);
+  }
+
+  /** Timbale : son grave et rond qui descend un peu. */
+  private timpani(t: number, freq: number, v: number) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq * 1.15, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.08);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    o.connect(g);
+    g.connect(this.music);
+    o.start(t);
+    o.stop(t + 1);
+    // frappe de la baguette
+    this.burst(t, 0.03, v * 0.25, 'lowpass', 900, 0.7, undefined, this.music);
   }
 }
 

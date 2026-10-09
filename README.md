@@ -6,6 +6,8 @@ Jeux arcade pour la famille (PWA), en 3 sports :
 - **Volleyball** : les Nomads.
 - **Danse** : battle de danse avec les K-Units.
 
+La page d'accueil est un stade olympique : le coin baseball (Billy et Stella) à gauche, le coin volleyball (les Nomads) à droite et la scène de danse (les K-Units) en bas. Les boutons, ou un toucher sur un coin, mènent à chaque sport. La musique de la page d'accueil est un thème olympique original (cuivres, trompette, timbales).
+
 Fait avec TypeScript, Vite et Phaser 3. Tous les personnages sont dessinés en vecteurs et tous les sons sont synthétisés : le jeu n'a aucun fichier image ou son à télécharger.
 
 ## Commandes
@@ -69,7 +71,7 @@ Dans le menu, choisis **DANSE**. Deux équipes de danse font une battle en 3 rou
 
 ## Sons du stade
 
-L'orgue, la foule et les chants sont de vrais enregistrements, lus en ligne (ils ne sont pas stockés dans le jeu). Ils jouent seulement au baseball. Les menus ont un air calme, le volleyball a la foule du gymnase, et la danse a ses propres musiques. Quand le jeu passe en arrière-plan (autre application, écran verrouillé), tous les sons s'arrêtent et la partie se met en pause. Sans connexion, le jeu utilise ses sons synthétisés. La liste est dans `src/game/config/sounds.ts`.
+L'orgue, la foule et les chants sont de vrais enregistrements, lus en ligne (ils ne sont pas stockés dans le jeu). Ils jouent seulement au baseball. Les menus ont le thème olympique, le volleyball a la foule du gymnase, et la danse a ses propres musiques. Quand le jeu passe en arrière-plan (autre application, écran verrouillé), tous les sons s'arrêtent et la partie se met en pause. Sans connexion, le jeu utilise ses sons synthétisés. La liste est dans `src/game/config/sounds.ts`.
 
 - « Take Me Out to the Ball Game », Edward Meeker, 1908 — domaine public ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:MeekerBallGame.ogg))
 - Freesound, licence CC0 : [orgue de Wrigley Field](https://freesound.org/people/treblebooster/sounds/151373/), [fanfares de stade](https://freesound.org/people/vckhaze/sounds/380696/), [riff d'orgue galop](https://freesound.org/people/trader_one/sounds/649371/), [ambiance Fenway Park](https://freesound.org/people/Douglas711/sounds/424295/), [enfants qui encouragent](https://freesound.org/people/craigsmith/sounds/675109/), [foule de Montréal](https://freesound.org/people/kyles/sounds/629884/), [foule qui applaudit](https://freesound.org/people/FoolBoyMedia/sounds/397434/), [applaudissements rythmés](https://freesound.org/people/jasinski/sounds/18364/)

@@ -6,7 +6,7 @@
  * - Les sons du stade (Freesound, Wikimedia) viennent d'un autre site : ils ont besoin d'Internet.
  *   Sans Internet, le jeu utilise ses sons synthétisés.
  */
-const CACHE = 'turcau-bbl-v22';
+const CACHE = 'turcau-bbl-v23';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
